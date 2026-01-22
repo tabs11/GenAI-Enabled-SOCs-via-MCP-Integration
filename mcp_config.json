@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "wazuh-local": {
+      "command": "python",
+      "args": ["wazuh_server.py"]
+    },
+    "mitre-knowledge": {
+      "command": "python",
+      "args": ["mitre_server.py"]
+    }
+  }
+}

