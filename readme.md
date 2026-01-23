@@ -1,28 +1,34 @@
-# Wazuh AI Analyst – MCP Architecture
+# 🛡️ Wazuh AI Analyst – GenAI-Enabled SOC via MCP Integration
 
 **Master's Thesis Prototype**  
 **Student:** Nuno Martins  
-**Supervisor:** Professor Nuno Lopes/Rui Fernandes  
+**Supervisor:** Professor Nuno Lopes / Rui Fernandes  
 **Institution:** Escola Superior de Tecnologia
 
 ---
 
-## 🛡️ Project Overview
+## 🎯 Project Overview
 
-This project demonstrates an intelligent SOC assistant that integrates a SIEM (Wazuh) and MITRE ATT&CK knowledge base with a Large Language Model (Llama 3.2) using the Model Context Protocol (MCP). The system automates alert triage and provides context-aware mitigation advice, reducing analyst fatigue and grounding AI responses in official frameworks.
+This project demonstrates an intelligent SOC assistant that integrates a SIEM (Wazuh) and MITRE ATT&CK knowledge base with a Large Language Model (Llama 3.2) using the **Model Context Protocol (MCP)**. The system automates alert triage and provides context-aware mitigation advice, reducing analyst fatigue and grounding AI responses in official security frameworks.
 
-### Key Features
+### ✨ Key Features
 
 - **Multi-Server MCP Orchestration:**  
   The Streamlit client (`app.py`) connects to two MCP servers:
-  - `wazuh_server.py`: Retrieves security alerts from mock Wazuh data (`alert.json`)
-  - `mitre_server.py`: Provides MITRE ATT&CK technique mitigations
+  - `wazuh_server.py`: Retrieves security alerts from mock Wazuh data
+  - `mitre_server.py`: Provides MITRE ATT&CK technique mitigations and playbooks
 
 - **Retrieval-Augmented Generation (RAG):**  
-  Alerts are cross-referenced with MITRE mitigations before being sent to the LLM, ensuring responses are contextually accurate.
+  Alerts are cross-referenced with MITRE mitigations before being sent to the LLM, ensuring responses are contextually accurate and actionable.
+
+- **Attack Scenario Simulator:**  
+  Inject different attack scenarios (SSH Brute Force, Network Scanning, Command Execution) to test the system's response capabilities.
+
+- **Dockerized Deployment:**  
+  Complete containerization with Docker Compose for easy deployment and consistent environments.
 
 - **Modular & Extensible:**  
-  Easily add new tools or data sources via MCP.
+  Easily add new tools, data sources, or attack scenarios via MCP protocol.
 
 ---
 
@@ -31,41 +37,80 @@ This project demonstrates an intelligent SOC assistant that integrates a SIEM (W
 ```mermaid
 graph TD
     User[SOC Analyst] -->|Interacts| Client[Streamlit Client / MCP Host]
-    Client <-->|MCP Protocol| Wazuh["Wazuh MCP Server (Python)"]
-    Client <-->|MCP Protocol| MITRE["MITRE MCP Server (Python)"]
-    Wazuh <-->|Reads| Alerts[alert.json]
+    Client <-->|MCP Protocol| Wazuh["Wazuh MCP Server"]
+    Client <-->|MCP Protocol| MITRE["MITRE MCP Server"]
+    Wazuh <-->|Reads| Alerts[alert.json / Scenarios]
     MITRE <-->|Queries| KB[MITRE ATT&CK Knowledge Base]
-    Client <-->|Prompt + Context| LLM["Llama 3.2 (Ollama)"]
+    Client <-->|Prompt + Context| LLM["Llama 3.2 via Ollama"]
+    
+    subgraph Docker Environment
+        Client
+        LLM
+        Wazuh
+        MITRE
+    end
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### Option 1: Docker Deployment (Recommended)
 
+#### Prerequisites
+- Docker & Docker Compose installed
+- At least 8GB RAM available
+
+#### Quick Start
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd GenAI-Enabled-SOCs-via-MCP-Integration
+   ```
+
+2. **Start all services:**
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Pull the Llama 3.2 model:**
+   ```bash
+   docker exec -it ollama-service ollama pull llama3.2
+   ```
+
+4. **Access the application:**
+   - Open browser: http://localhost:8501
+   - Optional: Vulnerable target at http://localhost:8080
+
+5. **Stop all services:**
+   ```bash
+   docker-compose down
+   ```
+
+### Option 2: Local Installation
+
+#### Prerequisites
 - Python 3.10+
-- Ollama with Llama 3.2 model installed
+- Ollama installed locally
 
-### Installation
+#### Installation Steps
 
 1. **Install Python dependencies:**
    ```bash
-   pip install streamlit mcp ollama
+   pip install -r requirements.txt
    ```
 
-2. **Install and run Ollama:**
+2. **Install and configure Ollama:**
    ```bash
-   # Download Ollama from https://ollama.com/
-   # Pull the Llama 3.2 model
+   # Download from https://ollama.com/
    ollama pull llama3.2
    ```
 
-### Running the Application
-
-```bash
-streamlit run app.py
-```
+3. **Run the application:**
+   ```bash
+   streamlit run app.py
+   ```
 
 The application will:
 - Automatically launch `wazuh_server.py` and `mitre_server.py` MCP servers
@@ -74,15 +119,45 @@ The application will:
 
 ---
 
-## 📂 File Structure
+## 📂 Project Structure
 
-- **`app.py`** – Main Streamlit application and MCP client orchestrator
-- **`wazuh_server.py`** – MCP server that provides Wazuh alert data
-- **`mitre_server.py`** – MCP server that provides MITRE ATT&CK mitigations
-- **`alert.json`** – Mock security alert data (simulates Wazuh output)
-- **`test_connection.py`** – Utility to test MCP server connections
-- **`mcp_config.json`** – MCP configuration file
-- **`readme.md`** – Project documentation
+```
+GenAI-Enabled-SOCs-via-MCP-Integration/
+├── app.py                    # Main Streamlit application (MCP client)
+├── wazuh_server.py          # MCP server for Wazuh alerts
+├── mitre_server.py          # MCP server for MITRE ATT&CK knowledge
+├── test_connection.py       # MCP connection testing utility
+├── alert.json               # Current active alert
+├── alert_Orig.json          # Original alert backup
+├── mcp_config.json          # MCP configuration file
+├── requirements.txt         # Python dependencies
+├── Dockerfile               # Container image definition
+├── docker-compose.yml       # Multi-container orchestration
+├── .gitignore              # Git ignore rules
+├── .dockerignore           # Docker ignore rules (optional)
+├── scenarios/              # Attack scenario templates
+│   ├── alert_brute.json    # SSH Brute Force (T1110)
+│   ├── alert_scan.json     # Network Scanning (T1595)
+│   └── alert_exec.json     # Command Execution (T1059)
+└── readme.md               # This file
+```
+
+---
+
+## 🎮 Using Attack Scenarios
+
+The Lab Controller in the sidebar allows you to inject different attack scenarios:
+
+1. **SSH Brute Force (T1110):**  
+   Simulates multiple failed authentication attempts from a single IP
+
+2. **Network Scanning (T1595):**  
+   Simulates reconnaissance activity with port scanning
+
+3. **Command Execution (T1059):**  
+   Simulates suspicious command execution after initial access
+
+Click "Inject Attack" to load the scenario and see how the AI analyst responds.
 
 ---
 
@@ -90,26 +165,28 @@ The application will:
 
 ### Data Flow
 
-1. **Alert Retrieval:** The client calls `wazuh_server.py` via MCP to fetch the latest security alert from `alert.json`
+1. **Alert Retrieval:** The client calls `wazuh_server.py` via MCP to fetch the latest security alert
 2. **Context Enhancement:** The MITRE technique ID (e.g., T1110) is extracted from the alert
-3. **Knowledge Retrieval:** The client calls `mitre_server.py` to fetch mitigation strategies for the detected technique
+3. **Knowledge Retrieval:** The client calls `mitre_server.py` to fetch mitigation strategies and playbooks
 4. **AI Analysis:** Both the alert and MITRE context are sent to Llama 3.2 via Ollama
 5. **Interactive Response:** The SOC analyst can ask questions, and the AI responds with grounded, context-aware advice
 
 ### RAG Pipeline
 
 The system implements Retrieval-Augmented Generation (RAG) by:
-- Retrieving relevant security data from multiple sources (Wazuh + MITRE)
-- Augmenting the LLM prompt with this external context
-- Generating responses that are factually grounded in official security frameworks
+- **Retrieving** relevant security data from multiple sources (Wazuh alerts + MITRE playbooks)
+- **Augmenting** the LLM prompt with this external context
+- **Generating** responses that are factually grounded in official security frameworks
+
+This approach reduces hallucinations and ensures recommendations are actionable and compliant with industry best practices.
 
 ---
 
-## 🔧 Configuration
+## 🔧 Technical Details
 
-### MCP Servers
+### MCP Server Configuration
 
-Both servers are configured as `StdioServerParameters` in `app.py`:
+Both servers are launched as `StdioServerParameters` in `app.py`:
 
 ```python
 wazuh_server = StdioServerParameters(
@@ -123,51 +200,187 @@ mitre_server = StdioServerParameters(
 )
 ```
 
-### Adding New Tools
+### Docker Services
 
-To extend functionality, create a new MCP server:
+- **soc-assistant:** Streamlit app with MCP client orchestration
+- **ollama:** Local LLM runtime (Llama 3.2)
+- **victim-machine:** Optional vulnerable web app for demonstration (DVWA)
 
-```python
-# my_server.py
-from mcp.server.fastmcp import FastMCP
+### Environment Variables
 
-mcp = FastMCP("My-Custom-Server")
+- `OLLAMA_HOST`: URL of Ollama service (default: `http://ollama:11434` in Docker)
 
-@mcp.tool()
-def my_tool(param: str) -> str:
-    """Tool description"""
-    return "result"
+### Adding New Attack Scenarios
 
-if __name__ == "__main__":
-    mcp.run()
+Create a new JSON file in the `scenarios/` folder following this structure:
+
+```json
+{
+  "rule": {
+    "level": 10,
+    "description": "Your attack description",
+    "mitre": {
+      "id": ["T1234"],
+      "tactic": ["Tactic Name"],
+      "technique": ["Technique Name"]
+    }
+  },
+  "data": {
+    "srcip": "192.168.1.100"
+  }
+}
 ```
 
-Then add it to `app.py` orchestration.
+---
+
+## 🔧 Technical Details
+
+### MCP Server Configuration
+
+Both servers are launched as `StdioServerParameters` in `app.py`:
+
+```python
+wazuh_server = StdioServerParameters(
+    command=sys.executable, 
+    args=["wazuh_server.py"]
+)
+
+mitre_server = StdioServerParameters(
+    command=sys.executable, 
+    args=["mitre_server.py"]
+)
+```
+
+### Docker Services
+
+- **soc-assistant:** Streamlit app with MCP client orchestration
+- **ollama:** Local LLM runtime (Llama 3.2)
+- **victim-machine:** Optional vulnerable web app for demonstration (DVWA)
+
+### Environment Variables
+
+- `OLLAMA_HOST`: URL of Ollama service (default: `http://ollama:11434` in Docker)
+
+### Adding New Attack Scenarios
+
+Create a new JSON file in the `scenarios/` folder following this structure:
+
+```json
+{
+  "rule": {
+    "level": 10,
+    "description": "Your attack description",
+    "mitre": {
+      "id": ["T1234"],
+      "tactic": ["Tactic Name"],
+      "technique": ["Technique Name"]
+    }
+  },
+  "data": {
+    "srcip": "192.168.1.100"
+  }
+}
+```
+
+### Extending the MITRE Knowledge Base
+
+Edit `mitre_server.py` and add new entries to the `KNOWLEDGE_BASE` dictionary:
+
+```python
+KNOWLEDGE_BASE = {
+    "T1234": """
+    ### MITRE T1234: Your Technique
+    **Description:** Technique description
+    **Mitigation / Playbook:**
+    1. Step one
+    2. Step two
+    """
+}
+```
 
 ---
 
 ## 🎯 Use Cases
 
-- **Alert Triage:** Automatically explain security alerts in plain language
+- **Alert Triage:** Automatically explain security alerts in plain language with MITRE context
 - **Incident Investigation:** Ask "What should I check next?" and get MITRE-based guidance
 - **Playbook Assistance:** Retrieve step-by-step mitigation procedures for detected techniques
-- **Training:** Help junior analysts understand attack patterns and response strategies
+- **Training & Education:** Help junior analysts understand attack patterns and response strategies
+- **Threat Hunting:** Explore different attack scenarios and their defensive measures
 
 ---
 
-## 📖 References
+## 🐛 Troubleshooting
 
-- [Wazuh SIEM](https://wazuh.com/) – Open-source security monitoring platform
-- [MITRE ATT&CK](https://attack.mitre.org/) – Knowledge base of adversary tactics and techniques
-- [Ollama](https://ollama.com/) – Local LLM runtime
-- [Model Context Protocol (MCP)](https://github.com/modelcontext/protocol) – Protocol for LLM-tool integration
-- [Streamlit](https://streamlit.io/) – Python framework for building data applications
+### Docker Issues
+
+**Problem:** Containers fail to start  
+**Solution:** Check Docker logs: `docker-compose logs`
+
+**Problem:** Ollama model not found  
+**Solution:** Pull the model manually:
+```bash
+docker exec -it ollama-service ollama pull llama3.2
+```
+
+**Problem:** Port already in use (8501)  
+**Solution:** Stop conflicting services or change port in `docker-compose.yml`
+
+### Local Installation Issues
+
+**Problem:** MCP servers fail to connect  
+**Solution:** Ensure Python path is correct and servers have execute permissions
+
+**Problem:** Ollama connection failed  
+**Solution:** Verify Ollama is running: `ollama list`
+
+---
+
+## 📊 Performance Considerations
+
+- **Memory:** Llama 3.2 requires ~8GB RAM
+- **Storage:** Model files ~4GB
+- **Network:** Local deployment (no internet required after initial setup)
+
+---
+
+## 🔒 Security Notes
+
+- This is a **prototype for educational purposes**
+- The DVWA vulnerable target should **never be exposed to the internet**
+- Use in isolated lab environments only
+- Mock data is used instead of real security alerts
+
+---
+
+## 📖 References & Resources
+
+- **[Wazuh SIEM](https://wazuh.com/)** – Open-source security monitoring and threat detection platform
+- **[MITRE ATT&CK](https://attack.mitre.org/)** – Globally-accessible knowledge base of adversary tactics and techniques
+- **[Ollama](https://ollama.com/)** – Run large language models locally
+- **[Model Context Protocol (MCP)](https://modelcontext.github.io/)** – Open protocol for LLM-tool integration
+- **[Streamlit](https://streamlit.io/)** – Python framework for building data applications
+- **[FastMCP](https://github.com/jlowin/fastmcp)** – Pythonic framework for building MCP servers
+- **[Docker](https://www.docker.com/)** – Containerization platform
+
+---
+
+## 🚧 Future Enhancements
+
+- [ ] Real-time Wazuh API integration
+- [ ] Multiple LLM model comparison (Mistral, Gemma, etc.)
+- [ ] Advanced RAG with vector embeddings
+- [ ] Alert correlation across multiple events
+- [ ] Export incident reports to PDF/JSON
+- [ ] Multi-language support
+- [ ] Integration with ticketing systems (Jira, ServiceNow)
 
 ---
 
 ## 📝 License
 
-This project is developed as part of a Master's thesis at Escola Superior de Tecnologia.
+This project is developed as part of a Master's thesis at Escola Superior de Tecnologia.  
+For academic and educational use only.
 
 ---
 
@@ -175,4 +388,18 @@ This project is developed as part of a Master's thesis at Escola Superior de Tec
 
 **Nuno Martins**  
 Master's in Artificial Intelligence  
-Escola Superior de Tecnologia
+Escola Superior de Tecnologia  
+
+**Thesis Supervisors:**  
+- Professor Nuno Lopes  
+- Professor Rui Fernandes
+
+---
+
+## 🙏 Acknowledgments
+
+Special thanks to the professors and the institution for supporting this research in applying GenAI to cybersecurity operations.
+
+---
+
+**For questions or collaboration opportunities, please contact via institutional channels.**

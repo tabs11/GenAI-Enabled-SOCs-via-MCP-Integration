@@ -3,10 +3,15 @@ import asyncio
 import json
 import ollama
 import sys
+import os
 from contextlib import AsyncExitStack
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 import shutil
+
+# Configure Ollama client to use Docker service if OLLAMA_HOST is set
+ollama_client = ollama.Client(host=os.getenv("OLLAMA_HOST", "http://localhost:11434"))
+
 # --- PAGE CONFIGURATION ---
 st.set_page_config(layout="wide", page_title="Wazuh AI Assistant", page_icon="🛡️")
 
@@ -17,7 +22,7 @@ def get_installed_models():
     Returns a default list if connection fails.
     """
     try:
-        models_info = ollama.list()
+        models_info = ollama_client.list()
         # return format --> {'models': [{'model': 'llama3.2:latest', ...}]}
         return [m['model'] for m in models_info['models']]
     except Exception as e:
@@ -42,21 +47,21 @@ with st.sidebar:
         format_func=lambda x: scenarios[x]
     )
 
-    st.divider() # Linha separadora visual
+    st.divider() # visual separator
     
     st.header("🧠 AI Configuration")
     
-    # Deteta modelos automaticamente
+    #detect models automatically
     available_models = get_installed_models()
     
     selected_model = st.selectbox(
         "Select LLM Model:",
         options=available_models,
-        index=0, # O primeiro da lista será o default
+        index=0, # the
         help="Switch models to compare speed vs. accuracy."
     )
     
-    # Mostra qual está ativo (opcional, mas bom para debug)
+    # Shows which model is active (optional, but good for debugging)
     st.caption(f"Active Model: `{selected_model}`")
     
     # 3. Button to Apply
@@ -233,7 +238,7 @@ with col_chat:
             """
             
             # Create stream
-            stream = ollama.chat(
+            stream = ollama_client.chat(
                 model=selected_model, 
                 messages=[{'role': 'user', 'content': final_prompt}], 
                 stream=True
