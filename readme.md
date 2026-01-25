@@ -16,7 +16,13 @@ This project demonstrates an intelligent SOC assistant that integrates a SIEM (W
 - **Multi-Server MCP Orchestration:**  
   The Streamlit client (`app.py`) connects to two MCP servers:
   - `wazuh_server.py`: Retrieves security alerts from mock Wazuh data
-  - `mitre_server.py`: Provides MITRE ATT&CK technique mitigations and playbooks
+  - `mitre_server.py`: Provides MITRE ATT&CK intelligence with three modes:
+    - **Custom Playbooks:** Hardcoded SOC response procedures
+    - **Official MITRE Data:** Live threat intelligence from MITRE ATT&CK repository
+    - **Combined Mode:** Both custom playbooks and official data together
+
+- **Real-Time MITRE ATT&CK Integration:**  
+  Downloads and caches official MITRE ATT&CK data from the MITRE CTI repository, providing up-to-date threat intelligence with automatic 24-hour refresh.
 
 - **Retrieval-Augmented Generation (RAG):**  
   Alerts are cross-referenced with MITRE mitigations before being sent to the LLM, ensuring responses are contextually accurate and actionable.
@@ -157,7 +163,30 @@ The Lab Controller in the sidebar allows you to inject different attack scenario
 3. **Command Execution (T1059):**  
    Simulates suspicious command execution after initial access
 
-Click "Inject Attack" to load the scenario and see how the AI analyst responds.
+Click "Trigger Alert" to load the scenario and see how the AI analyst responds.
+
+---
+
+## 🎯 MITRE Intelligence Modes
+
+The system offers three intelligence sources that can be selected from the sidebar:
+
+### 📋 Custom Playbooks (Hardcoded)
+- Step-by-step SOC response procedures
+- Tailored for your organization's specific environment
+- Includes actionable mitigation steps
+- Example: T1110 playbook with auth.log checks and IP blocking
+
+### 🌐 Official MITRE Data (Live)
+- Downloads real-time data from [MITRE CTI Repository](https://github.com/mitre/cti)
+- Provides official technique descriptions, tactics, and platforms
+- Auto-cached for 24 hours to reduce API calls
+- Includes direct links to MITRE ATT&CK website
+
+### 🔄 Combined Mode (Recommended)
+- Merges official MITRE intelligence with custom playbooks
+- Gives analysts both threat context and actionable response steps
+- Best for comprehensive incident analysis
 
 ---
 
@@ -167,18 +196,29 @@ Click "Inject Attack" to load the scenario and see how the AI analyst responds.
 
 1. **Alert Retrieval:** The client calls `wazuh_server.py` via MCP to fetch the latest security alert
 2. **Context Enhancement:** The MITRE technique ID (e.g., T1110) is extracted from the alert
-3. **Knowledge Retrieval:** The client calls `mitre_server.py` to fetch mitigation strategies and playbooks
+3. **Knowledge Retrieval:** The client calls `mitre_server.py` using the selected intelligence mode:
+   - `get_playbook()` - Retrieves custom SOC playbooks
+   - `get_mitre_technique()` - Downloads official MITRE ATT&CK data
+   - `get_combined_intel()` - Merges both sources
 4. **AI Analysis:** Both the alert and MITRE context are sent to Llama 3.2 via Ollama
 5. **Interactive Response:** The SOC analyst can ask questions, and the AI responds with grounded, context-aware advice
 
 ### RAG Pipeline
 
 The system implements Retrieval-Augmented Generation (RAG) by:
-- **Retrieving** relevant security data from multiple sources (Wazuh alerts + MITRE playbooks)
+- **Retrieving** relevant security data from multiple sources (Wazuh alerts + MITRE intelligence)
 - **Augmenting** the LLM prompt with this external context
 - **Generating** responses that are factually grounded in official security frameworks
 
 This approach reduces hallucinations and ensures recommendations are actionable and compliant with industry best practices.
+
+### MITRE ATT&CK Data Management
+
+The `mitre_server.py` automatically handles MITRE ATT&CK data:
+- **Download:** Fetches STIX 2.0 JSON from the official MITRE CTI GitHub repository
+- **Cache:** Stores data locally in `mitre_attack_data.json` for 24 hours
+- **Parse:** Extracts technique details including descriptions, tactics, platforms, and references
+- **Refresh:** Can be manually triggered using the `refresh_mitre_data()` tool
 
 ---
 
@@ -199,6 +239,15 @@ mitre_server = StdioServerParameters(
     args=["mitre_server.py"]
 )
 ```
+
+### MITRE Server Tools
+
+The `mitre_server.py` exposes four MCP tools:
+
+1. **`get_playbook(technique_id)`** - Retrieves custom SOC playbooks
+2. **`get_mitre_technique(technique_id)`** - Fetches official MITRE ATT&CK data  
+3. **`get_combined_intel(technique_id)`** - Returns both playbook and official data
+4. **`refresh_mitre_data()`** - Forces download of latest MITRE data
 
 ### Docker Services
 

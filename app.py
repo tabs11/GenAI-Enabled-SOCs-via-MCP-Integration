@@ -64,6 +64,27 @@ with st.sidebar:
     # Shows which model is active (optional, but good for debugging)
     st.caption(f"Active Model: `{selected_model}`")
     
+    st.divider() # visual separator
+    
+    st.header("🎯 MITRE Intelligence Source")
+    
+    intel_options = {
+        "playbook": "📋 Custom Playbooks (Hardcoded)",
+        "mitre": "🌐 Official MITRE Data (Live)",
+        "combined": "🔄 Combined (Both Sources)"
+    }
+    
+    intel_mode = st.selectbox(
+        "Intelligence Mode:",
+        options=list(intel_options.keys()),
+        format_func=lambda x: intel_options[x],
+        index=2,  # Default to combined
+        help="Choose between hardcoded playbooks, real MITRE data, or both."
+    )
+    
+    # Store in session state for use in async function
+    st.session_state["intel_mode"] = intel_mode
+    
     # 3. Button to Apply
     if st.button("🚨 Trigger Alert", type="primary"):
         source_file = f"scenarios/alert_{selected_scenario.replace('ssh_brute', 'brute').replace('net_scan', 'scan').replace('cmd_exec', 'exec')}.json"
@@ -157,9 +178,20 @@ async def orchestrate_investigation():
         # 2. Get Intelligence (MITRE Tool)
         if mitre_id:
             try:
-                # The server has tools to search by ID
-                # Note: Tool name might vary, "mitigations" is the common standard
-                mitigation_result = await mitre_session.call_tool("mitigations", arguments={"technique_id": mitre_id})
+                # Get the selected intelligence mode from session state
+                intel_mode = st.session_state.get("intel_mode", "combined")
+                
+                # Map mode to tool name
+                tool_map = {
+                    "playbook": "get_playbook",
+                    "mitre": "get_mitre_technique",
+                    "combined": "get_combined_intel"
+                }
+                
+                tool_name = tool_map.get(intel_mode, "get_combined_intel")
+                
+                # Call the appropriate tool
+                mitigation_result = await mitre_session.call_tool(tool_name, arguments={"technique_id": mitre_id})
                 context_text = mitigation_result.content[0].text
             except Exception as e:
                 context_text = f"Could not retrieve MITRE data for ID {mitre_id}: {str(e)}"
