@@ -69,17 +69,23 @@ with st.sidebar:
     st.header("🎯 MITRE Intelligence Source")
     
     intel_options = {
-        "playbook": "📋 Custom Playbooks (Hardcoded)",
-        "mitre": "🌐 Official MITRE Data (Live)",
-        "combined": "🔄 Combined (Both Sources)"
+        "tier1": "📋 Tier 1: Playbook Only",
+        "tier2": "📊 Tier 2: Summary (Description + Tactics)",
+        "tier3": "🔬 Tier 3: Deep Dive (Full Intelligence)",
+        "hybrid": "🔄 Hybrid: Playbook + Deep Dive"
     }
     
     intel_mode = st.selectbox(
-        "Intelligence Mode:",
+        "Select Intelligence Tier:",
         options=list(intel_options.keys()),
         format_func=lambda x: intel_options[x],
-        index=2,  # Default to combined
-        help="Choose between hardcoded playbooks, real MITRE data, or both."
+        index=3,  # Default to hybrid
+        help="""
+        **Tier 1:** Custom SOC playbooks only (hardcoded response procedures)
+        **Tier 2:** MITRE summary (official description + tactics)
+        **Tier 3:** MITRE deep analysis (platforms, data sources, kill chain)
+        **Hybrid:** Combines Tier 1 + Tier 3 for complete context
+        """
     )
     
     # Store in session state for use in async function
@@ -175,22 +181,23 @@ async def orchestrate_investigation():
         
         context_text = "No MITRE ID found in alert."
         
-        # 2. Get Intelligence (MITRE Tool)
+        # 2. Get Intelligence (MITRE Tool) - Map tier selection to tool name
         if mitre_id:
             try:
                 # Get the selected intelligence mode from session state
-                intel_mode = st.session_state.get("intel_mode", "combined")
+                intel_mode = st.session_state.get("intel_mode", "hybrid")
                 
-                # Map mode to tool name
+                # Map tier selection to MCP tool name
                 tool_map = {
-                    "playbook": "get_playbook",
-                    "mitre": "get_mitre_technique",
-                    "combined": "get_combined_intel"
+                    "tier1": "get_playbook",
+                    "tier2": "get_summary",
+                    "tier3": "get_deep_analysis",
+                    "hybrid": "get_full_context"
                 }
                 
-                tool_name = tool_map.get(intel_mode, "get_combined_intel")
+                tool_name = tool_map.get(intel_mode, "get_full_context")
                 
-                # Call the appropriate tool
+                # Call the appropriate MCP tool
                 mitigation_result = await mitre_session.call_tool(tool_name, arguments={"technique_id": mitre_id})
                 context_text = mitigation_result.content[0].text
             except Exception as e:

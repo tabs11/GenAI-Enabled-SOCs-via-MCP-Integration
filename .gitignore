@@ -47,7 +47,6 @@ Desktop.ini
 *_backup.json
 temp/
 tmp/
-mitre_attack_data.json  # MITRE ATT&CK cache file
 
 # Streamlit
 .streamlit/secrets.toml

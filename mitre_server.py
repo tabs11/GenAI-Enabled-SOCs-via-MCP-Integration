@@ -2,75 +2,72 @@
 from mcp.server.fastmcp import FastMCP
 import requests
 import json
-import os
-from pathlib import Path
+import sys
+from typing import Optional, Dict, Any
 
-# Define a second MCP server purely for Threat Intel
+# Define MCP server for Threat Intel
 mcp = FastMCP("MITRE-Knowledge-Base")
 
-# MITRE ATT&CK STIX data URL
-MITRE_ATTACK_URL = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
-CACHE_FILE = Path("mitre_attack_data.json")
+# MITRE ATT&CK STIX data URL (Official MITRE STIX repository)
+MITRE_ATTACK_URL = "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack.json"
 
-# Cache duration in seconds (24 hours)
-CACHE_DURATION = 86400
+# Global in-memory cache for MITRE data
+MITRE_CACHE: Optional[Dict[str, Any]] = None
 
-def download_mitre_data():
-    """Download the latest MITRE ATT&CK data from the official repository."""
+def download_and_cache_mitre_data() -> bool:
+    """
+    Downloads the official MITRE ATT&CK STIX JSON on server startup.
+    Caches the data in memory for fast access.
+    Returns True if successful, False otherwise.
+    """
+    global MITRE_CACHE
+    
+    sys.stderr.write("[MITRE SERVER] Downloading MITRE ATT&CK STIX data...\n")
+    
     try:
-        response = requests.get(MITRE_ATTACK_URL, timeout=30)
+        response = requests.get(MITRE_ATTACK_URL, timeout=60)
         response.raise_for_status()
         data = response.json()
         
-        # Cache the data locally
-        with open(CACHE_FILE, 'w') as f:
-            json.dump(data, f)
+        # Build a fast lookup dictionary: technique_id -> technique_object
+        MITRE_CACHE = {}
         
-        return data
+        for obj in data.get('objects', []):
+            if obj.get('type') == 'attack-pattern':
+                # Extract the technique ID (e.g., T1110)
+                external_refs = obj.get('external_references', [])
+                for ref in external_refs:
+                    if ref.get('source_name') == 'mitre-attack':
+                        technique_id = ref.get('external_id')
+                        if technique_id:
+                            MITRE_CACHE[technique_id] = {
+                                'id': technique_id,
+                                'name': obj.get('name', 'Unknown'),
+                                'description': obj.get('description', 'No description available'),
+                                'url': ref.get('url', ''),
+                                'tactics': [phase['phase_name'] for phase in obj.get('kill_chain_phases', [])],
+                                'platforms': obj.get('x_mitre_platforms', []),
+                                'data_sources': obj.get('x_mitre_data_sources', [])
+                            }
+                        break
+        
+        sys.stderr.write(f"[MITRE SERVER] Successfully loaded {len(MITRE_CACHE)} techniques into memory.\n")
+        return True
+        
     except Exception as e:
+        sys.stderr.write(f"[MITRE SERVER] Failed to download MITRE data: {str(e)}\n")
+        MITRE_CACHE = {}
+        return False
+
+def get_technique_from_cache(technique_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieve technique data from in-memory cache."""
+    if MITRE_CACHE is None:
         return None
+    return MITRE_CACHE.get(technique_id)
 
-def load_mitre_data():
-    """Load MITRE data from cache or download if not available."""
-    # Check if cache exists and is recent
-    if CACHE_FILE.exists():
-        cache_age = os.path.getmtime(CACHE_FILE)
-        if (os.path.getmtime(CACHE_FILE) - cache_age) < CACHE_DURATION:
-            try:
-                with open(CACHE_FILE, 'r') as f:
-                    return json.load(f)
-            except:
-                pass
-    
-    # Download fresh data
-    return download_mitre_data()
-
-def get_technique_from_mitre(technique_id: str):
-    """Extract technique details from MITRE STIX data."""
-    data = load_mitre_data()
-    if not data:
-        return None
-    
-    # STIX format: look for attack-pattern objects
-    for obj in data.get('objects', []):
-        if obj.get('type') == 'attack-pattern':
-            # Check if this is the technique we're looking for
-            external_refs = obj.get('external_references', [])
-            for ref in external_refs:
-                if ref.get('source_name') == 'mitre-attack' and ref.get('external_id') == technique_id:
-                    return {
-                        'id': technique_id,
-                        'name': obj.get('name', 'Unknown'),
-                        'description': obj.get('description', 'No description available'),
-                        'url': ref.get('url', ''),
-                        'tactics': [phase['phase_name'] for phase in obj.get('kill_chain_phases', [])],
-                        'platforms': obj.get('x_mitre_platforms', [])
-                    }
-    
-    return None
-
-# A small local database of playbooks for your demo scenarios
-# Expanded KNOWLEDGE_BASE for mitre_server.py
+# =============================================================================
+# TIER 1: LOCAL PLAYBOOKS (Hardcoded SOC Response Procedures)
+# =============================================================================
 
 KNOWLEDGE_BASE = {
     # PHASE 1: RECONNAISSANCE (Scanning)
@@ -120,64 +117,107 @@ KNOWLEDGE_BASE = {
 3. **Isolation:** If confirmed, move the web server to a quarantine VLAN."""
 }
 
+# =============================================================================
+# MCP TOOLS - 3-TIER ARCHITECTURE
+# =============================================================================
+
 @mcp.tool()
 def get_playbook(technique_id: str) -> str:
     """
-    Retrieves the SOC Playbook and mitigation strategies for a specific MITRE Technique ID.
-    This returns hardcoded playbooks with step-by-step response procedures.
+    TIER 1: Local Playbook (Hardcoded SOC Response Procedures)
+    
+    Retrieves custom SOC playbooks with step-by-step mitigation procedures.
+    These are organization-specific response procedures maintained locally.
+    
     Example Input: "T1110"
     """
-    # Look up the ID in our local dictionary
-    info = KNOWLEDGE_BASE.get(technique_id)
-    
-    if info:
-        return info
-    else:
-        return f"No specific playbook found for technique ID: {technique_id}. Suggest manual investigation on attack.mitre.org."
-
-@mcp.tool()
-def get_mitre_technique(technique_id: str) -> str:
-    """
-    Retrieves official MITRE ATT&CK data for a specific technique ID.
-    This downloads real data from the MITRE ATT&CK repository.
-    Example Input: "T1110"
-    """
-    technique = get_technique_from_mitre(technique_id)
-    
-    if technique:
-        output = f"""### MITRE {technique['id']}: {technique['name']}
-
-**Description:** {technique['description']}
-
-**Tactics:** {', '.join(technique['tactics'])}
-
-**Platforms:** {', '.join(technique['platforms'])}
-
-**Reference:** {technique['url']}
-"""
-        return output
-    else:
-        return f"Technique {technique_id} not found in MITRE ATT&CK database. Please verify the ID is correct."
-
-@mcp.tool()
-def get_combined_intel(technique_id: str) -> str:
-    """
-    Retrieves both official MITRE ATT&CK data AND the custom SOC playbook.
-    This combines real threat intelligence with actionable response procedures.
-    Example Input: "T1110"
-    """
-    # Get official MITRE data
-    mitre_data = get_mitre_technique(technique_id)
-    
-    # Get custom playbook
     playbook = KNOWLEDGE_BASE.get(technique_id)
     
     if playbook:
-        # Remove leading/trailing whitespace from playbook
-        playbook_clean = playbook.strip()
-        return f"{mitre_data}\n\n---\n\n{playbook_clean}"
+        return playbook
     else:
-        return f"{mitre_data}\n\n---\n\n*No custom playbook available for this technique*"
+        return f"❌ No custom playbook found for technique ID: {technique_id}.\n\nSuggestion: Create a playbook or use Tier 2/3 for official MITRE data."
+
+@mcp.tool()
+def get_summary(technique_id: str) -> str:
+    """
+    TIER 2: Official MITRE Summary (Description + Tactics)
+    
+    Retrieves a concise summary from the official MITRE ATT&CK database.
+    Includes the official description and associated tactics (kill chain phases).
+    
+    Example Input: "T1110"
+    """
+    technique = get_technique_from_cache(technique_id)
+    
+    if not technique:
+        return f"❌ Technique {technique_id} not found in MITRE ATT&CK database.\n\nEnsure the server has downloaded the MITRE data successfully."
+    
+    output = f"""### {technique['id']}: {technique['name']}
+
+**Description:** {technique['description']}
+
+**Tactics:** {', '.join(technique['tactics']) if technique['tactics'] else 'None specified'}
+
+**Reference:** {technique['url']}
+"""
+    return output
+
+@mcp.tool()
+def get_deep_analysis(technique_id: str) -> str:
+    """
+    TIER 3: Deep Dive Analysis (Full MITRE Intelligence)
+    
+    Retrieves comprehensive details from the official MITRE ATT&CK database.
+    Includes description, tactics, platforms, data sources, and references.
+    Use this for in-depth incident investigation.
+    
+    Example Input: "T1110"
+    """
+    technique = get_technique_from_cache(technique_id)
+    
+    if not technique:
+        return f"❌ Technique {technique_id} not found in MITRE ATT&CK database.\n\nEnsure the server has downloaded the MITRE data successfully."
+    
+    output = f"""### {technique['id']}: {technique['name']}
+
+**Description:** {technique['description']}
+
+**Tactics (Kill Chain Phases):** {', '.join(technique['tactics']) if technique['tactics'] else 'None specified'}
+
+**Platforms:** {', '.join(technique['platforms']) if technique['platforms'] else 'None specified'}
+
+**Data Sources:** {', '.join(technique['data_sources']) if technique['data_sources'] else 'None specified'}
+
+**Official Reference:** {technique['url']}
+
+---
+
+*This data is sourced from the official MITRE ATT&CK STIX repository.*
+"""
+    return output
+
+@mcp.tool()
+def get_full_context(technique_id: str) -> str:
+    """
+    HYBRID: Full Context (Tier 1 Playbook + Tier 3 Deep Analysis)
+    
+    Combines custom SOC playbooks with comprehensive MITRE ATT&CK intelligence.
+    Provides both actionable response procedures and detailed threat context.
+    Recommended for complete incident analysis.
+    
+    Example Input: "T1110"
+    """
+    # Get Tier 3 (Deep Analysis)
+    deep_analysis = get_deep_analysis(technique_id)
+    
+    # Get Tier 1 (Playbook)
+    playbook = KNOWLEDGE_BASE.get(technique_id)
+    
+    if playbook:
+        return f"{deep_analysis}\n\n---\n\n## 🔧 CUSTOM SOC PLAYBOOK\n\n{playbook}"
+    else:
+        return f"{deep_analysis}\n\n---\n\n*No custom playbook available for this technique. Consider creating one based on your organization's procedures.*"
 
 @mcp.tool()
 def refresh_mitre_data() -> str:
@@ -185,18 +225,21 @@ def refresh_mitre_data() -> str:
     Forces a refresh of the MITRE ATT&CK database from the official repository.
     Use this to get the latest threat intelligence updates.
     """
-    # Delete cache file if it exists
-    if CACHE_FILE.exists():
-        CACHE_FILE.unlink()
+    success = download_and_cache_mitre_data()
     
-    # Download fresh data
-    data = download_mitre_data()
-    
-    if data:
-        num_techniques = sum(1 for obj in data.get('objects', []) if obj.get('type') == 'attack-pattern')
-        return f"Successfully refreshed MITRE ATT&CK data. Loaded {num_techniques} techniques."
+    if success and MITRE_CACHE:
+        return f"✅ Successfully refreshed MITRE ATT&CK data. Loaded {len(MITRE_CACHE)} techniques into memory."
     else:
-        return "Failed to refresh MITRE data. Check your internet connection."
+        return "❌ Failed to refresh MITRE data. Check your internet connection and server logs."
+
+# =============================================================================
+# SERVER INITIALIZATION
+# =============================================================================
+
+# Download MITRE data on server startup
+sys.stderr.write("[MITRE SERVER] Initializing...\n")
+download_and_cache_mitre_data()
+sys.stderr.write("[MITRE SERVER] Ready to serve requests.\n")
 
 if __name__ == "__main__":
     mcp.run()
