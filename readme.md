@@ -93,7 +93,11 @@ graph TD
 
 4. **Access the application:**
    - Open browser: http://localhost:8501
-   - Optional: Vulnerable target at http://localhost:8080
+   - Metasploitable2 vulnerable target available on:
+     - SSH: `localhost:2222`
+     - FTP: `localhost:21`
+     - Telnet: `localhost:23`
+     - HTTP: `localhost:8080`
 
 5. **Stop/Restart all services:**
    ```bash
@@ -286,7 +290,7 @@ The `mitre_server.py` exposes five MCP tools implementing the 3-Tier architectur
 
 - **soc-assistant:** Streamlit app with MCP client orchestration
 - **ollama:** Local LLM runtime (Llama 3.2)
-- **victim-machine:** Optional vulnerable web app for demonstration (DVWA)
+- **metasploitable:** Intentionally vulnerable Linux server (Metasploitable2) simulating infrastructure attack scenarios across SSH, FTP, Telnet, and HTTP services
 
 ### Environment Variables
 
@@ -337,7 +341,7 @@ mitre_server = StdioServerParameters(
 
 - **soc-assistant:** Streamlit app with MCP client orchestration
 - **ollama:** Local LLM runtime (Llama 3.2)
-- **victim-machine:** Optional vulnerable web app for demonstration (DVWA)
+- **metasploitable:** Intentionally vulnerable Linux server (Metasploitable2) simulating infrastructure attack scenarios across SSH, FTP, Telnet, and HTTP services
 
 ### Environment Variables
 
@@ -392,6 +396,22 @@ KNOWLEDGE_BASE = {
 - **Playbook Assistance:** Retrieve step-by-step mitigation procedures for detected techniques
 - **Training & Education:** Help junior analysts understand attack patterns and response strategies
 - **Threat Hunting:** Explore different attack scenarios and their defensive measures
+- **Infrastructure Attack Simulation:** Test SSH brute force, network scanning, and exploitation techniques against Metasploitable2 target
+
+### Testing SSH Brute Force (T1110)
+
+Connect to the Metasploitable2 target using legacy SSH algorithms:
+
+```bash
+ssh -o KexAlgorithms=+diffie-hellman-group1-sha1 -o HostKeyAlgorithms=+ssh-rsa,ssh-dss msfadmin@localhost -p 2222
+```
+
+**Default Credentials:**
+- Username: `msfadmin`
+- Password: `msfadmin`
+
+**Why legacy algorithms are needed:**  
+Metasploitable2 uses outdated cryptographic algorithms that modern SSH clients reject by default. The `-o` options enable these deprecated algorithms for lab testing purposes.
 
 ---
 
@@ -440,8 +460,9 @@ docker exec -it ollama-service ollama pull llama3.2
 ## 🔒 Security Notes
 
 - This is a **prototype for educational purposes**
-- The DVWA vulnerable target should **never be exposed to the internet**
-- Use in isolated lab environments only
+- The Metasploitable2 vulnerable target should **never be exposed to the internet**
+- Metasploitable2 contains intentional vulnerabilities across multiple services (SSH, FTP, Telnet, HTTP)
+- Use in isolated lab environments only - disconnect from public networks
 - Mock data is used instead of real security alerts
 
 ---

@@ -27,14 +27,23 @@ services:
     # Note: On first run, you need to 'docker exec' to pull the model
     # Example: docker exec -it ollama-service ollama pull llama3.2
 
-  # --- SERVICE 3: VULNERABLE MACHINE (THE TARGET) ---
-  # Optional: Simulates the target of attacks for demonstration
-  victim-machine:
-    image: vulnerables/web-dvwa       # Web app with known security vulnerabilities
-    container_name: vulnerable-target
+  # --- SERVICE 3: METASPLOITABLE (VULNERABLE TARGET) ---
+  # Simulates a vulnerable Linux server for infrastructure attack scenarios
+  metasploitable:
+    image: tleemcjr/metasploitable2   # Metasploitable2 Docker image
+    container_name: metasploitable-target
+    # --- ADICIONA ESTAS DUAS LINHAS ---
+    stdin_open: true # same as -i
+    tty: true        # same as -t
+    # ----------------------------------
     ports:
-      - "8080:80"                     # Access it in browser at http://localhost:8080
+      - "2222:22"                     # SSH (mapped to 2222 to avoid host conflict)
+      - "21:21"                       # FTP
+      - "23:23"                       # Telnet
+      - "8080:80"                     # HTTP
     restart: unless-stopped
+    # WARNING: This is an intentionally vulnerable target
+    # NEVER expose these ports to the internet - lab use only
 
 # Volume to persist Ollama models
 volumes:
