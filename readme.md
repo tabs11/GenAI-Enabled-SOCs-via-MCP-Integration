@@ -93,11 +93,13 @@ graph TD
 
 4. **Access the application:**
    - Open browser: http://localhost:8501
-   - Metasploitable2 vulnerable target available on:
-     - SSH: `localhost:2222`
+   - **Metasploitable2 vulnerable target** available on:
+     - SSH: `localhost:2222` (use `-p 2222`)
      - FTP: `localhost:21`
      - Telnet: `localhost:23`
      - HTTP: `localhost:8080`
+   
+   **WARNING:** Metasploitable2 is intentionally vulnerable. These ports should never be expose to the internet.
 
 5. **Stop/Restart all services:**
    ```bash
@@ -317,57 +319,6 @@ Create a new JSON file in the `scenarios/` folder following this structure:
 }
 ```
 
----
-
-## 🔧 Technical Details
-
-### MCP Server Configuration
-
-Both servers are launched as `StdioServerParameters` in `app.py`:
-
-```python
-wazuh_server = StdioServerParameters(
-    command=sys.executable, 
-    args=["wazuh_server.py"]
-)
-
-mitre_server = StdioServerParameters(
-    command=sys.executable, 
-    args=["mitre_server.py"]
-)
-```
-
-### Docker Services
-
-- **soc-assistant:** Streamlit app with MCP client orchestration
-- **ollama:** Local LLM runtime (Llama 3.2)
-- **metasploitable:** Intentionally vulnerable Linux server (Metasploitable2) simulating infrastructure attack scenarios across SSH, FTP, Telnet, and HTTP services
-
-### Environment Variables
-
-- `OLLAMA_HOST`: URL of Ollama service (default: `http://ollama:11434` in Docker)
-
-### Adding New Attack Scenarios
-
-Create a new JSON file in the `scenarios/` folder following this structure:
-
-```json
-{
-  "rule": {
-    "level": 10,
-    "description": "Your attack description",
-    "mitre": {
-      "id": ["T1234"],
-      "tactic": ["Tactic Name"],
-      "technique": ["Technique Name"]
-    }
-  },
-  "data": {
-    "srcip": "192.168.1.100"
-  }
-}
-```
-
 ### Extending the MITRE Knowledge Base
 
 Edit `mitre_server.py` and add new entries to the `KNOWLEDGE_BASE` dictionary (Tier 1 Playbooks):
@@ -385,7 +336,7 @@ KNOWLEDGE_BASE = {
 ```
 
 **Note:** Official MITRE data (Tier 2 & 3) is automatically available for all 600+ techniques without manual configuration.
-```
+
 
 ---
 
@@ -398,7 +349,9 @@ KNOWLEDGE_BASE = {
 - **Threat Hunting:** Explore different attack scenarios and their defensive measures
 - **Infrastructure Attack Simulation:** Test SSH brute force, network scanning, and exploitation techniques against Metasploitable2 target
 
-### Testing SSH Brute Force (T1110)
+---
+
+## 🧪 Testing SSH Brute Force (T1110)
 
 Connect to the Metasploitable2 target using legacy SSH algorithms:
 
