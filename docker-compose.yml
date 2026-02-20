@@ -10,9 +10,16 @@ services:
     volumes:
       - .:/app                        # Live sync: edits on Windows appear in Docker
     environment:
-      - OLLAMA_HOST=http://ollama:11434 # Tell your code where Ollama is located
+      - OLLAMA_HOST=http://ollama:11434      # Tell your code where Ollama is located
+      - WAZUH_MANAGER_IP=wazuh-manager       # Wazuh Manager service name
+      - WAZUH_API_PORT=55000                 # Wazuh API port
+      - WAZUH_API_USER=wazuh-wui             # Default Wazuh API user
+      - WAZUH_API_PASSWORD=MyS3cr37P450r.*-  # Change this in production!
     depends_on:
       - ollama                        # Start only after Ollama is ready
+      - wazuh-manager                 # Ensure Wazuh is available
+    networks:
+      - soc_network
     restart: unless-stopped           # Auto-restart on failure
 
   # --- SERVICE 2: OLLAMA (AI ENGINE) ---
@@ -23,6 +30,8 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama     # Persist models (Llama 3.2) to avoid re-downloading
+    networks:
+      - soc_network
     restart: unless-stopped
     # Note: On first run, you need to 'docker exec' to pull the model
     # Example: docker exec -it ollama-service ollama pull llama3.2
@@ -32,19 +41,148 @@ services:
   metasploitable:
     image: tleemcjr/metasploitable2   # Metasploitable2 Docker image
     container_name: metasploitable-target
-    # --- ADICIONA ESTAS DUAS LINHAS ---
-    stdin_open: true # same as -i
-    tty: true        # same as -t
-    # ----------------------------------
+    stdin_open: true                  # Keep STDIN open (same as -i)
+    tty: true                         # Allocate a pseudo-TTY (same as -t)
     ports:
       - "2222:22"                     # SSH (mapped to 2222 to avoid host conflict)
       - "21:21"                       # FTP
       - "23:23"                       # Telnet
       - "8080:80"                     # HTTP
+    networks:
+      - soc_network
     restart: unless-stopped
     # WARNING: This is an intentionally vulnerable target
     # NEVER expose these ports to the internet - lab use only
 
-# Volume to persist Ollama models
+  # --- SERVICE 4: WAZUH INDEXER (Elasticsearch Backend) ---
+  wazuh-indexer:
+    image: wazuh/wazuh-indexer:4.7.2
+    container_name: wazuh-indexer
+    hostname: wazuh.indexer
+    ports:
+      - "9200:9200"                   # Indexer API (for debugging)
+    environment:
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - wazuh_indexer_data:/var/lib/wazuh-indexer
+      - ./config/wazuh_indexer_ssl_certs/root-ca.pem:/usr/share/wazuh-indexer/certs/root-ca.pem
+      - ./config/wazuh_indexer_ssl_certs/wazuh.indexer-key.pem:/usr/share/wazuh-indexer/certs/wazuh.indexer.key
+      - ./config/wazuh_indexer_ssl_certs/wazuh.indexer.pem:/usr/share/wazuh-indexer/certs/wazuh.indexer.pem
+      - ./config/wazuh_indexer_ssl_certs/admin.pem:/usr/share/wazuh-indexer/certs/admin.pem
+      - ./config/wazuh_indexer_ssl_certs/admin-key.pem:/usr/share/wazuh-indexer/certs/admin-key.pem
+      - ./config/wazuh_indexer/wazuh.indexer.yml:/usr/share/wazuh-indexer/opensearch.yml
+      - ./config/wazuh_indexer/internal_users.yml:/usr/share/wazuh-indexer/opensearch-security/internal_users.yml
+    networks:
+      soc_network:
+        aliases:
+          - wazuh.indexer
+    restart: unless-stopped
+
+  # --- SERVICE 5: WAZUH MANAGER (SIEM Core) ---
+  wazuh-manager:
+    image: wazuh/wazuh-manager:4.7.2
+    container_name: wazuh-manager
+    hostname: wazuh.manager
+    ports:
+      - "1514:1514"                   # Agent connection (syslog receiver)
+      - "1515:1515"                   # Agent enrollment service
+      - "55000:55000"                 # Wazuh API
+    environment:
+      - INDEXER_URL=https://wazuh.indexer:9200
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=SecretPassword
+      - FILEBEAT_SSL_VERIFICATION_MODE=full
+      - SSL_CERTIFICATE_AUTHORITIES=/etc/ssl/root-ca.pem
+      - SSL_CERTIFICATE=/etc/ssl/filebeat.pem
+      - SSL_KEY=/etc/ssl/filebeat-key.pem
+      - API_USERNAME=wazuh-wui           # API user for your app
+      - API_PASSWORD=MyS3cr37P450r.*-    # Match the password in soc-assistant
+    volumes:
+      - wazuh_api_configuration:/var/ossec/api/configuration
+      - wazuh_etc:/var/ossec/etc
+      - wazuh_logs:/var/ossec/logs
+      - wazuh_queue:/var/ossec/queue
+      - wazuh_var_multigroups:/var/ossec/var/multigroups
+      - wazuh_integrations:/var/ossec/integrations
+      - wazuh_active_response:/var/ossec/active-response/bin
+      - wazuh_agentless:/var/ossec/agentless
+      - wazuh_wodles:/var/ossec/wodles
+      - filebeat_etc:/etc/filebeat
+      - filebeat_var:/var/lib/filebeat
+      - ./config/wazuh_indexer_ssl_certs/root-ca-manager.pem:/etc/ssl/root-ca.pem
+      - ./config/wazuh_indexer_ssl_certs/wazuh.manager.pem:/etc/ssl/filebeat.pem
+      - ./config/wazuh_indexer_ssl_certs/wazuh.manager-key.pem:/etc/ssl/filebeat-key.pem
+      - ./config/wazuh_cluster/wazuh_manager.conf:/wazuh-config-mount/etc/ossec.conf
+    networks:
+      soc_network:
+        aliases:
+          - wazuh.manager
+    depends_on:
+      - wazuh-indexer
+    restart: unless-stopped
+
+  # --- SERVICE 6: WAZUH DASHBOARD (Web UI) ---
+  wazuh-dashboard:
+    image: wazuh/wazuh-dashboard:4.7.2
+    container_name: wazuh-dashboard
+    hostname: wazuh.dashboard
+    ports:
+      - "443:5601"                    # Access via https://localhost:443
+    environment:
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=SecretPassword
+      - WAZUH_API_URL=https://wazuh.manager
+      - API_USERNAME=wazuh-wui
+      - API_PASSWORD=MyS3cr37P450r.*-
+      - DASHBOARD_USERNAME=kibanaserver
+      - DASHBOARD_PASSWORD=kibanaserver
+      - OPENSEARCH_HOSTS=https://wazuh.indexer:9200
+    volumes:
+      - wazuh_dashboard_config:/usr/share/wazuh-dashboard/data/wazuh/config
+      - wazuh_dashboard_custom:/usr/share/wazuh-dashboard/plugins/wazuh/public/assets/custom
+      - ./config/wazuh_indexer_ssl_certs/wazuh.dashboard.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard.pem
+      - ./config/wazuh_indexer_ssl_certs/wazuh.dashboard-key.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard-key.pem
+      - ./config/wazuh_indexer_ssl_certs/root-ca.pem:/usr/share/wazuh-dashboard/certs/root-ca.pem
+      - ./config/wazuh_dashboard/opensearch_dashboards.yml:/usr/share/wazuh-dashboard/config/opensearch_dashboards.yml
+      - ./config/wazuh_dashboard/wazuh.yml:/usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml
+    networks:
+      soc_network:
+        aliases:
+          - wazuh.dashboard
+    depends_on:
+      - wazuh-indexer
+      - wazuh-manager
+    restart: unless-stopped
+
+# --- NETWORKS ---
+networks:
+  soc_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# --- VOLUMES ---
 volumes:
   ollama_data:
+  wazuh_indexer_data:
+  wazuh_api_configuration:
+  wazuh_etc:
+  wazuh_logs:
+  wazuh_queue:
+  wazuh_var_multigroups:
+  wazuh_integrations:
+  wazuh_active_response:
+  wazuh_agentless:
+  wazuh_wodles:
+  filebeat_etc:
+  filebeat_var:
+  wazuh_dashboard_config:
+  wazuh_dashboard_custom:

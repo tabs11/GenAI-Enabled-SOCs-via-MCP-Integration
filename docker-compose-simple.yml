@@ -1,0 +1,56 @@
+# Simplified Docker Compose - Without Full Wazuh Stack
+# Use this if you encounter Wazuh Indexer issues
+# This version only includes your app, Ollama, and Metasploitable
+
+version: '3.8'
+
+services:
+  # --- SERVICE 1: YOUR SOC SYSTEM (APP + MCP) ---
+  soc-assistant:
+    build: .
+    container_name: wazuh-mcp-agent
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      - ollama
+    networks:
+      - soc_network
+    restart: unless-stopped
+
+  # --- SERVICE 2: OLLAMA (AI ENGINE) ---
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-service
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - soc_network
+    restart: unless-stopped
+
+  # --- SERVICE 3: METASPLOITABLE (VULNERABLE TARGET) ---
+  metasploitable:
+    image: tleemcjr/metasploitable2
+    container_name: metasploitable-target
+    stdin_open: true
+    tty: true
+    ports:
+      - "2222:22"
+      - "21:21"
+      - "23:23"
+      - "8080:80"
+    networks:
+      - soc_network
+    restart: unless-stopped
+
+networks:
+  soc_network:
+    driver: bridge
+
+volumes:
+  ollama_data:

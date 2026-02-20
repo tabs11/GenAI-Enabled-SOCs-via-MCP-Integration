@@ -290,13 +290,81 @@ The `mitre_server.py` exposes five MCP tools implementing the 3-Tier architectur
 
 ### Docker Services
 
+The docker-compose.yml orchestrates 6 services in a shared network:
+
 - **soc-assistant:** Streamlit app with MCP client orchestration
 - **ollama:** Local LLM runtime (Llama 3.2)
 - **metasploitable:** Intentionally vulnerable Linux server (Metasploitable2) simulating infrastructure attack scenarios across SSH, FTP, Telnet, and HTTP services
+- **wazuh-indexer:** Elasticsearch-based storage backend (OpenSearch)
+- **wazuh-manager:** SIEM core - processes logs, generates alerts, exposes API
+- **wazuh-dashboard:** Web UI for visualization and management
+
+### Wazuh Stack Integration
+
+This project now includes a full **Wazuh SIEM stack** for real-world security monitoring:
+
+#### 🔧 Architecture
+```
+┌─────────────────────────────────────────────────────┐
+│            SOC Network (172.20.0.0/16)              │
+├─────────────────────────────────────────────────────┤
+│  App → Wazuh Manager → Wazuh Indexer ← Dashboard   │
+│         ↑                                           │
+│         └─ Agents (Metasploitable, future targets)  │
+└─────────────────────────────────────────────────────┘
+```
+
+#### 🚀 Quick Start
+```bash
+# Deploy the full stack
+docker-compose up -d
+
+# Wait for services to initialize (~60 seconds)
+docker logs wazuh-manager
+
+# Access Wazuh Dashboard
+# Open: https://localhost:443
+# Login: admin / admin
+
+# Test the API
+curl -k -u wazuh-wui:MyS3cr37P450r.*- https://localhost:55000/
+```
+
+#### 🔗 Key Ports
+- **1514:** Wazuh agent connections (syslog/TCP)
+- **1515:** Wazuh agent enrollment
+- **55000:** Wazuh REST API (used by your app)
+- **9200:** Wazuh Indexer (Elasticsearch)
+- **443:** Wazuh Dashboard (HTTPS)
+
+#### 📡 MCP Integration
+The `wazuh_server.py` now includes real API tools:
+- `get_latest_alerts()` - Mock alerts from JSON (for testing)
+- `get_real_wazuh_alerts()` - Live alerts from Wazuh Manager
+- `get_wazuh_agents()` - List registered monitoring agents
+
+#### 🎯 Deploying Agents
+To monitor Metasploitable and generate real alerts:
+```bash
+# See detailed guide
+cat scripts/setup_wazuh.md
+
+# Or use automated script
+bash scripts/deploy_agent_to_metasploitable.sh
+```
+
+#### 📚 Documentation
+- **Full Setup Guide:** [scripts/setup_wazuh.md](scripts/setup_wazuh.md)
+- **PowerShell Deployment:** `scripts/deploy_wazuh_stack.ps1`
+- **Connection Testing:** `scripts/test_wazuh_connection.ps1`
 
 ### Environment Variables
 
 - `OLLAMA_HOST`: URL of Ollama service (default: `http://ollama:11434` in Docker)
+- `WAZUH_MANAGER_IP`: Wazuh Manager hostname (default: `wazuh-manager`)
+- `WAZUH_API_PORT`: Wazuh API port (default: `55000`)
+- `WAZUH_API_USER`: API authentication username (default: `wazuh-wui`)
+- `WAZUH_API_PASSWORD`: API authentication password (default: `MyS3cr37P450r.*-`)
 
 ### Adding New Attack Scenarios
 

@@ -48,5 +48,9 @@ Desktop.ini
 temp/
 tmp/
 
+# Wazuh certificates (security sensitive)
+config/wazuh_indexer_ssl_certs/*.pem
+config/wazuh_indexer_ssl_certs/*.key
+
 # Streamlit
 .streamlit/secrets.toml
