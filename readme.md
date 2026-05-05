@@ -1,6 +1,6 @@
 # 🛡️ Wazuh AI Analyst – GenAI-Enabled SOC via MCP Integration
 
-**Master's Thesis Prototype**  
+**Master's Dissertation Prototype**  
 **Student:** Nuno Martins  
 **Supervisor:** Professor Nuno Lopes / Rui Fernandes  
 **Institution:** Escola Superior de Tecnologia
@@ -13,17 +13,26 @@ This project demonstrates an intelligent SOC assistant that integrates a SIEM (W
 
 ### ✨ Key Features
 
-- **Multi-Server MCP Orchestration:**  
-  The Streamlit client (`app.py`) connects to two MCP servers:
-  - `wazuh_server.py`: Retrieves security alerts from mock Wazuh data
-  - `mitre_server.py`: Implements a **3-Tier Hybrid RAG Architecture** for threat intelligence
+- **Dual-Mode UI Investigation:**  
+  The Streamlit client (`app.py`) offers two distinct workflows dynamically toggled via the UI:
+  - **Agentic RAG (Autonomous):** A **Constrained ReAct** LangGraph agent orchestrates tool calls programmatically. It uses strict graph routing to ensure Tier 1 playbooks are checked before reverting to Tier 2/3 mitigations. It also features a **Self-Correction (Reflection) loop** that intercepts and repairs LLM tool-calling hallucinations before they crash the UI.
+  - **Static RAG (Interactive):** A structured, step-by-step pipeline where context is loaded upfront, presenting an interactive chatbot for the loaded alert.
 
-- **3-Tier Hybrid RAG Architecture:**  
-  Revolutionary intelligence system combining local knowledge with official MITRE ATT&CK data:
-  - **Tier 1 (Playbook):** Hardcoded SOC response procedures for immediate action
-  - **Tier 2 (Summary):** Official MITRE descriptions and tactics for threat context
-  - **Tier 3 (Deep Dive):** Comprehensive intelligence including platforms, data sources, and kill chains
-  - **Hybrid Mode:** Combines Tier 1 + Tier 3 for complete operational context
+- **Automated Evaluation Pipeline:**
+  - Includes a programmatic grading script (`evaluate_agent.py`) capable of running the agent autonomously across large batch datasets.
+  - Accompanied by `generate_safe_scenarios.py` to synthesize hundreds of AV-safe, MITRE-mapped mock alerts for robust LLM evaluation and performance exporting to Pandas/Excel.
+
+- **Multi-Server MCP Orchestration:**  
+  The application connects to two MCP servers via `stdio`:
+  - `wazuh_server.py`: Retrieves security alerts from mock Wazuh data and live Wazuh APIs.
+  - `mitre_server.py`: Implements a **3-Tier Hybrid Architecture** for threat intelligence.
+
+- **3-Tier Hybrid Intelligence Architecture:**  
+  Revolutionary intelligence system providing graceful AI degradation:
+  - **Tier 1 (Playbook):** Hardcoded SOC response procedures for immediate, trusted local action
+  - **Tier 2 (MITRE Data):** Official MITRE descriptions, tactics, and mitigations retrieved dynamically via MCP
+  - **Tier 3 (Generative Fallback):** LLM Latent Knowledge activated conditionally automatically when external tools fail (explicitly flagged in the report).
+  - **Hybrid Mode:** Combines Tier 1 + Tier 2 for complete operational context
 
 - **Real-Time MITRE ATT&CK Integration:**  
   Downloads and caches official MITRE ATT&CK STIX data in-memory on server startup, providing instant access to 600+ techniques with zero latency.
@@ -32,7 +41,7 @@ This project demonstrates an intelligent SOC assistant that integrates a SIEM (W
   Alerts are cross-referenced with MITRE mitigations before being sent to the LLM, ensuring responses are contextually accurate and actionable.
 
 - **Attack Scenario Simulator:**  
-  Inject different attack scenarios (SSH Brute Force, Network Scanning, Command Execution) to test the system's response capabilities.
+  Inject 5 different attack scenarios (SSH Brute Force, Network Scanning, Command Execution, SQL Injection, Scheduled Task) to test the system's response capabilities, including how the agent autonomously pivots when custom playbooks are missing!
 
 - **Dockerized Deployment:**  
   Complete containerization with Docker Compose for easy deployment and consistent environments.
@@ -46,15 +55,19 @@ This project demonstrates an intelligent SOC assistant that integrates a SIEM (W
 
 ```mermaid
 graph TD
-    User[SOC Analyst] -->|Interacts| Client[Streamlit Client / MCP Host]
-    Client <-->|MCP Protocol| Wazuh["Wazuh MCP Server"]
-    Client <-->|MCP Protocol| MITRE["MITRE MCP Server"]
-    Wazuh <-->|Reads| Alerts[alert.json / Scenarios]
+    User[SOC Analyst] -->|Interacts & Toggles Mode| Client[Streamlit Client / UI]
+    Client <-->|Instantiates| Agent[Constrained LangGraph ReAct Agent]
+    Agent <-->|Self-Correction Loop| Reflection[Correction Node]
+    Agent <-->|Directs Tools via MCP| Wazuh["Wazuh MCP Server"]
+    Agent <-->|Directs Tools via MCP| MITRE["MITRE MCP Server"]
+    Wazuh <-->|Reads| Alerts[alert.json / Synthetic Scenarios]
+    Wazuh <-->|Queries| WazuhManager[Live Wazuh Manager API]
     MITRE <-->|Queries| KB[MITRE ATT&CK Knowledge Base]
-    Client <-->|Prompt + Context| LLM["Llama 3.2 via Ollama"]
+    Agent <-->|Reasoning & Action| LLM["Llama 3.2 / 3.1 via Ollama"]
     
     subgraph Docker Environment
         Client
+        Agent
         LLM
         Wazuh
         MITRE
@@ -73,39 +86,97 @@ graph TD
 
 #### Quick Start
 
+**Option A: Automated Deployment (Recommended)**
+
+```powershell
+# 1. Clone the repository
+git clone https://github.com/tabs11/GenAI-Enabled-SOCs-via-MCP-Integration.git
+cd GenAI-Enabled-SOCs-via-MCP-Integration
+
+# 2. Run the automated deployment script
+.\deploy.ps1
+
+# The script will automatically:
+# - Configure WSL2 settings (Windows only)
+# - Generate SSL certificates
+# - Start all services
+# - Initialize security plugin
+# - Display access URLs
+```
+
+**Option B: Manual Deployment**
+
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/tabs11/GenAI-Enabled-SOCs-via-MCP-Integration.git
    cd GenAI-Enabled-SOCs-via-MCP-Integration
    ```
 
-2. **Start all services:**
+2. **Configure WSL2 (Windows only, one-time):**
+   ```powershell
+   wsl -d docker-desktop sysctl -w vm.max_map_count=262144
+   ```
+
+3. **Generate SSL certificates:**
+   ```bash
+   docker-compose -f generate-indexer-certs.yml run --rm generator
+   ```
+
+4. **Start all services:**
    ```bash
    docker-compose up -d
    ```
 
-   
+5. **Wait for services to initialize (45 seconds):**
+   ```powershell
+   Start-Sleep -Seconds 45
+   ```
 
-3. **Pull the Llama 3.2 model (First time only):**
+6. **Initialize Wazuh security plugin:**
+   ```powershell
+   docker exec wazuh-indexer bash -c 'export OPENSEARCH_JAVA_HOME=/usr/share/wazuh-indexer/jdk && /usr/share/wazuh-indexer/plugins/opensearch-security/tools/securityadmin.sh -cd /usr/share/wazuh-indexer/opensearch-security/ -icl -key /usr/share/wazuh-indexer/certs/admin-key.pem -cert /usr/share/wazuh-indexer/certs/admin.pem -cacert /usr/share/wazuh-indexer/certs/root-ca.pem -h 127.0.0.1 -nhnv'
+   ```
+
+7. **Pull the Llama 3.2 model (First time only):**
    ```bash
    docker exec -it ollama-service ollama pull llama3.2
    ```
 
-4. **Access the application:**
-   - Open browser: http://localhost:8501
-   - **Metasploitable2 vulnerable target** available on:
-     - SSH: `localhost:2222` (use `-p 2222`)
+8. **Access the services:**
+   - **SOC Assistant:** http://localhost:8501
+   - **Wazuh Dashboard:** https://localhost:443 (admin/SecretPassword)
+   - **Wazuh API:** https://localhost:55000
+   - **Kali Linux attacker:** `docker exec -it kali-attacker bash`
+   - **Metasploitable2 vulnerable target:**
+     - SSH: `ssh -oHostKeyAlgorithms=+ssh-rsa msfadmin@localhost -p 2222`
      - FTP: `localhost:21`
      - Telnet: `localhost:23`
      - HTTP: `localhost:8080`
    
-   **WARNING:** Metasploitable2 is intentionally vulnerable. These ports should never be expose to the internet.
+   **WARNING:** Metasploitable2 is intentionally vulnerable. Never expose these ports to the internet.
 
-5. **Stop/Restart all services:**
+9. **Run your first attack (optional):**
+   ```bash
+   # Access Kali container
+   docker exec -it kali-attacker bash
+   
+   # Navigate to attack scripts
+   cd /root/attacks
+   
+   # Run SSH brute force attack
+   bash ssh_brute_force.sh
+   
+   # Check Wazuh Dashboard for alerts (wait 1-2 minutes)
+   # Open: https://localhost:443
+   ```
+
+10. **Stop/Restart all services:**
    ```bash
    docker-compose down
-   docker-compose restart
+   docker-compose up -d
    ```
+   
+   **Note:** After initial setup, you can restart without re-running certificate generation or security initialization.
 
 ### Option 2: Local Installation
 
@@ -143,6 +214,7 @@ The application will:
 ```
 GenAI-Enabled-SOCs-via-MCP-Integration/
 ├── app.py                    # Main Streamlit application (MCP client)
+├── agent.py                  # LangGraph ReAct agent architecture
 ├── wazuh_server.py          # MCP server for Wazuh alerts
 ├── mitre_server.py          # MCP server for MITRE ATT&CK knowledge
 ├── test_connection.py       # MCP connection testing utility
@@ -151,21 +223,100 @@ GenAI-Enabled-SOCs-via-MCP-Integration/
 ├── mcp_config.json          # MCP configuration file
 ├── requirements.txt         # Python dependencies
 ├── Dockerfile               # Container image definition
-├── docker-compose.yml       # Multi-container orchestration
+├── docker-compose.yml       # Full stack orchestration (with Wazuh)
+├── docker-compose-simple.yml # Simple mode (without Wazuh)
+├── generate-indexer-certs.yml # SSL certificate generator
+├── deploy.ps1              # Automated deployment script
 ├── .gitignore              # Git ignore rules
 ├── .dockerignore           # Docker ignore rules (optional)
+├── config/                 # Configuration files
+│   ├── certs.yml           # Certificate generation config
+│   ├── wazuh_indexer/      # Indexer configuration
+│   ├── wazuh_dashboard/    # Dashboard configuration
+│   └── wazuh_cluster/      # Manager configuration
 ├── scenarios/              # Attack scenario templates
 │   ├── alert_brute.json    # SSH Brute Force (T1110)
 │   ├── alert_scan.json     # Network Scanning (T1595)
-│   └── alert_exec.json     # Command Execution (T1059)
+│   ├── alert_exec.json     # Command Execution (T1059)
+│   ├── alert_sqli.json     # SQL Injection (T1190)
+│   └── alert_scheduled_task.json # Scheduled Task (T1053.005)
+├── scripts/                # Utility and attack scripts
+│   └── attacks/            # Kali Linux attack scripts
+│       ├── README.md       # Attack scripts documentation
+│       ├── ssh_brute_force.sh    # SSH brute force (T1110)
+│       ├── network_scan.sh       # Network scanning (T1595)
+│       ├── exploit_vsftpd.sh     # FTP exploit (T1190)
+│       └── web_attack.sh         # Web app attacks (T1190)
+├── documentation/          # Additional documentation
 └── readme.md               # This file
 ```
 
 ---
 
+## ⚔️ Kali Linux Attack Lab
+
+The project includes a **Kali Linux** container pre-configured with penetration testing tools for generating real security alerts.
+
+### 🚀 Quick Start
+
+```bash
+# Access Kali Linux container
+docker exec -it kali-attacker bash
+
+# Navigate to attack scripts
+cd /root/attacks
+
+# Run an attack
+bash ssh_brute_force.sh
+```
+
+### 🔧 Pre-Installed Tools
+
+- **Nmap** - Network scanning and reconnaissance
+- **Hydra** - Password brute forcing
+- **Metasploit Framework** - Exploitation framework
+- **curl/wget** - Web application testing
+- **iputils-ping** - Network connectivity testing
+
+### 📋 Available Attack Scripts
+
+| Script | Attack Type | MITRE Technique | Description |
+|--------|------------|-----------------|-------------|
+| `ssh_brute_force.sh` | Credential Access | T1110 | SSH password brute force |
+| `network_scan.sh` | Reconnaissance | T1595 | Port scanning and service detection |
+| `exploit_vsftpd.sh` | Initial Access | T1190 | Exploit vulnerable FTP service |
+| `web_attack.sh` | Initial Access | T1190 | Web vulnerability testing |
+
+### 🎯 Attack Workflow
+
+1. **Execute Attack:**
+   ```bash
+   docker exec -it kali-attacker bash
+   cd /root/attacks
+   bash network_scan.sh
+   ```
+
+2. **Wait for Alerts:** Wazuh processes logs within 1-5 minutes
+
+3. **View in Dashboard:** https://localhost:443 → Security Events
+
+4. **AI Analysis:** Ask your SOC Assistant to analyze the alerts
+
+### 💡 Custom Attacks
+
+You can add your own scripts to `scripts/attacks/` - they'll automatically mount to `/root/attacks` in the Kali container.
+
+### ⚠️ Important Notes
+
+- **First Startup:** Container takes 2-3 minutes to install tools
+- **Target Access:** Metasploitable is accessible via hostname `metasploitable` or its Docker IP
+- **Lab Only:** Never run these attacks outside isolated lab environments
+
+---
+
 ## 🎮 Using Attack Scenarios
 
-The Lab Controller in the sidebar allows you to inject different attack scenarios:
+The Lab Controller in the sidebar dynamically lists all mock payload files inside the `scenarios/` folder. This means you can drop new JSON mock alerts anytime, and the UI will automatically parse their internal details for the selection box! Current standard scenarios include:
 
 1. **SSH Brute Force (T1110):**  
    Simulates multiple failed authentication attempts from a single IP
@@ -176,53 +327,37 @@ The Lab Controller in the sidebar allows you to inject different attack scenario
 3. **Command Execution (T1059):**  
    Simulates suspicious command execution after initial access
 
-Click "Trigger Alert" to load the scenario and see how the AI analyst responds.
+4. **SQL Injection (T1190):**  
+   Simulates a web application SQL injection vulnerability exploitation.
+
+5. **Scheduled Task (T1053.005):**  
+   Simulates persistence. *Note: As this scenario has no hardcoded playbook, testing it perfectly showcases the ReAct agent's capacity to autonomously pivot to MITRE databases!*
+
+Click "Trigger Alert" to load the scenario and see how the AI Analyst responds.
 
 ---
 
-## 🎯 3-Tier Hybrid RAG Architecture
+## 🎯 3-Tier Graceful Degradation Architecture
 
-The system implements a sophisticated **3-Tier Intelligence Framework** that analysts can select from the sidebar:
+The system implements a sophisticated **3-Tier Intelligence Framework** enforcing an operational hierarchy of trust:
 
-### 📋 Tier 1: Playbook Only
+### 📋 Tier 1: Playbooks (Highest Trust)
 **Purpose:** Immediate Response Procedures  
 **What it provides:**
-- Custom hardcoded SOC playbooks maintained locally
-- Step-by-step mitigation procedures specific to your environment
-- Actionable commands and investigation steps
-- Example: For T1110 (Brute Force) - "Check /var/log/auth.log, block IP with iptables"
+- Custom hardcoded SOC playbooks maintained locally.
+- Actionable commands and investigation steps tailored to your infrastructure.
 
-**Best for:** SOC analysts who need quick response procedures without extra context.
-
-### 📊 Tier 2: Summary (Description + Tactics)
-**Purpose:** Concise Threat Intelligence  
+### 📊 Tier 2: MCP External Data (MITRE ATT&CK Base)
+**Purpose:** Official Cybersecurity Framework Guidance
 **What it provides:**
-- Official MITRE ATT&CK technique description
-- Associated tactics (kill chain phases)
-- Direct link to MITRE ATT&CK website
-- Lightweight and fast response
+- If no playbook exists, the AI autonomously queries official MITRE descriptions, platforms, data sources, and kill chain phases.
+- Dynamically retrieved via FastMCP from an in-memory STIX 2.0 database.
 
-**Best for:** Rapid threat identification and tactic mapping.
-
-### 🔬 Tier 3: Deep Dive (Full Intelligence)
-**Purpose:** In-Depth Investigation  
+### 🧠 Tier 3: LLM Parametric Fallback (Lowest Trust)
+**Purpose:** Generative Reasoning when local and external tooling fails
 **What it provides:**
-- Complete MITRE ATT&CK intelligence from official STIX repository
-- Detailed description and tactics
-- Target platforms (Windows, Linux, macOS, Cloud, etc.)
-- Data sources for detection (Process monitoring, Network traffic, etc.)
-- Kill chain phases and references
-
-**Best for:** Threat hunting, incident investigation, and understanding attack vectors.
-
-### 🔄 Hybrid Mode (Recommended)
-**Purpose:** Complete Operational Context  
-**What it provides:**
-- **Tier 1 Playbook** - Actionable response procedures
-- **Tier 3 Deep Analysis** - Comprehensive MITRE intelligence
-- Best of both worlds for complete incident handling
-
-**Best for:** Full incident response requiring both threat context and remediation steps.
+- If the technique ID is completely unknown or the tools return errors, the model relies on Latent Knowledge (its training data).
+- The final report enforces a strict WARNING to the user, asserting that the data was generated via AI expertise rather than grounded RAG context.
 
 ---
 
@@ -230,15 +365,17 @@ The system implements a sophisticated **3-Tier Intelligence Framework** that ana
 
 ### Data Flow
 
-1. **Alert Retrieval:** The client calls `wazuh_server.py` via MCP to fetch the latest security alert
-2. **Context Enhancement:** The MITRE technique ID (e.g., T1110) is extracted from the alert
-3. **Knowledge Retrieval:** The client calls `mitre_server.py` using the selected intelligence tier:
-   - `get_playbook()` - **Tier 1:** Custom SOC playbooks only
-   - `get_summary()` - **Tier 2:** MITRE summary (description + tactics)
-   - `get_deep_analysis()` - **Tier 3:** Full MITRE intelligence (platforms, data sources, kill chain)
-   - `get_full_context()` - **Hybrid:** Combines Tier 1 + Tier 3
-4. **AI Analysis:** Both the alert and MITRE context are sent to Llama 3.2 via Ollama
-5. **Interactive Response:** The SOC analyst can ask questions, and the AI responds with grounded, context-aware advice
+#### Path 1: Agentic RAG (Autonomous Mode)
+1. **LLM Invocation:** The user triggers triage. The LangGraph agent (`agent.py`) enters a ReAct loop.
+2. **Alert Retrieval:** The Agent autonomously decides to call `fetch_wazuh_alerts` via MCP.
+3. **Pivoting & Discovery:** The Agent identifies the MITRE technique (e.g., T1053) and invokes `get_tier1_playbook`.
+4. **Adaptive Response:** If the playbook exists, the Agent gathers the knowledge. If it receives a "Not Found" error, the agent *autonomously pivots* and queries `get_tier3_mitre_deep_dive` instead. 
+5. **Synthesis:** The agent generates a comprehensive response natively based on the tools it autonomously executed.
+
+#### Path 2: Static RAG (Interactive Mode)
+1. **Pre-Fetching:** The client calls `wazuh_server.py` to fetch an alert immediately upon loading.
+2. **Knowledge Retrieval:** The client automatically retrieves context from `mitre_server.py` corresponding to the user's manual radio button selection (Tier 1, Tier 2, etc).
+3. **Chat Response:** Context is sent in a bulk system prompt to Llama 3.2, granting the user a traditional conversational AI loop.
 
 ### RAG Pipeline
 
@@ -280,20 +417,20 @@ mitre_server = StdioServerParameters(
 
 ### MITRE Server Tools
 
-The `mitre_server.py` exposes five MCP tools implementing the 3-Tier architecture:
+The `mitre_server.py` exposes consolidated MCP tools implementing the operational architecture:
 
-1. **`get_playbook(technique_id)`** - **Tier 1:** Retrieves custom SOC playbooks with response procedures
-2. **`get_summary(technique_id)`** - **Tier 2:** Fetches concise MITRE summary (description + tactics)
-3. **`get_deep_analysis(technique_id)`** - **Tier 3:** Returns comprehensive MITRE intelligence (platforms, data sources, kill chain)
-4. **`get_full_context(technique_id)`** - **Hybrid:** Combines Tier 1 playbook + Tier 3 deep analysis
-5. **`refresh_mitre_data()`** - Forces download of latest MITRE ATT&CK data from official repository
+1. **`get_tier1_playbook(technique_id)`** - **Tier 1:** Retrieves custom SOC playbooks with hardcoded response procedures.
+2. **`get_tier2_mitre_data(technique_id)`** - **Tier 2:** Fetches comprehensive MITRE STIX intelligence (descriptions, platforms, data sources).
+3. **`get_full_context(technique_id)`** - **Static RAG Mode:** Combines Tier 1 playbook + Tier 2 MITRE data into single context.
+4. **`refresh_mitre_data()`** - Forces download of latest MITRE ATT&CK data from the official STIX repository.
 
 ### Docker Services
 
-The docker-compose.yml orchestrates 6 services in a shared network:
+The docker-compose.yml orchestrates 7 services in a shared network:
 
 - **soc-assistant:** Streamlit app with MCP client orchestration
 - **ollama:** Local LLM runtime (Llama 3.2)
+- **kali-linux:** Penetration testing platform with Nmap, Hydra, Metasploit
 - **metasploitable:** Intentionally vulnerable Linux server (Metasploitable2) simulating infrastructure attack scenarios across SSH, FTP, Telnet, and HTTP services
 - **wazuh-indexer:** Elasticsearch-based storage backend (OpenSearch)
 - **wazuh-manager:** SIEM core - processes logs, generates alerts, exposes API
@@ -316,15 +453,25 @@ This project now includes a full **Wazuh SIEM stack** for real-world security mo
 
 #### 🚀 Quick Start
 ```bash
-# Deploy the full stack
+# Deploy the full stack (use deploy.ps1 for automated setup)
+.\deploy.ps1
+
+# OR manually:
+# 1. Configure WSL2
+wsl -d docker-desktop sysctl -w vm.max_map_count=262144
+
+# 2. Generate certificates
+docker-compose -f generate-indexer-certs.yml run --rm generator
+
+# 3. Start services
 docker-compose up -d
 
-# Wait for services to initialize (~60 seconds)
-docker logs wazuh-manager
+# 4. Wait 45 seconds, then initialize security
+docker exec wazuh-indexer bash -c 'export OPENSEARCH_JAVA_HOME=/usr/share/wazuh-indexer/jdk && /usr/share/wazuh-indexer/plugins/opensearch-security/tools/securityadmin.sh -cd /usr/share/wazuh-indexer/opensearch-security/ -icl -key /usr/share/wazuh-indexer/certs/admin-key.pem -cert /usr/share/wazuh-indexer/certs/admin.pem -cacert /usr/share/wazuh-indexer/certs/root-ca.pem -h 127.0.0.1 -nhnv'
 
 # Access Wazuh Dashboard
 # Open: https://localhost:443
-# Login: admin / admin
+# Login: admin / SecretPassword
 
 # Test the API
 curl -k -u wazuh-wui:MyS3cr37P450r.*- https://localhost:55000/
@@ -531,7 +678,7 @@ Escola Superior de Tecnologia
 
 **Thesis Supervisors:**  
 - Professor Nuno Lopes  
-- Professor Rui Fernandes
+- PHD Student Rui Fernandes
 
 ---
 

@@ -30,6 +30,7 @@ def download_and_cache_mitre_data() -> bool:
         data = response.json()
         
         # Build a fast lookup dictionary: technique_id -> technique_object
+        global MITRE_CACHE
         MITRE_CACHE = {}
         
         for obj in data.get('objects', []):
@@ -66,56 +67,21 @@ def get_technique_from_cache(technique_id: str) -> Optional[Dict[str, Any]]:
     return MITRE_CACHE.get(technique_id)
 
 # =============================================================================
-# TIER 1: LOCAL PLAYBOOKS (Hardcoded SOC Response Procedures)
+# TIER 1: LOCAL PLAYBOOKS (Loaded from Config)
 # =============================================================================
 
-KNOWLEDGE_BASE = {
-    # PHASE 1: RECONNAISSANCE (Scanning)
-    "T1595": """### MITRE T1595: Active Scanning
-**Description:** Adversaries may execute active reconnaissance scans to gather information that can be used during targeting.
+PLAYBOOKS_FILE = "config/playbooks.json"
 
-**Mitigation / Playbook:**
-1. **Block:** Add source IP to the firewall blocklist immediately.
-2. **Analyze:** Check logs to see if the scan targeted specific open ports (e.g., 22, 80, 443).
-3. **Harden:** Ensure no unnecessary ports are exposed to the public internet.""",
+def load_playbooks() -> Dict[str, str]:
+    """Loads the custom playbooks from the JSON config file."""
+    try:
+        with open(PLAYBOOKS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        sys.stderr.write(f"[MITRE SERVER] Warning: Could not load playbooks from {PLAYBOOKS_FILE}: {e}\n")
+        return {}
 
-    # PHASE 2: INITIAL ACCESS (Your current demo)
-    "T1110": """### MITRE T1110: Brute Force
-**Description:** Adversaries may use brute force techniques to gain access to accounts.
-
-**Mitigation / Playbook:**
-1. **Identity:** Check /var/log/auth.log for rapid failures.
-2. **Containment:** Block source IP immediately using iptables or firewall.
-3. **Remediation:** Reset passwords for affected accounts.
-4. **Detection:** Look for Event ID 4625 (Windows) or 'Failed password' (Linux).""",
-
-    # PHASE 3: EXECUTION (The attacker got in and is running commands)
-    "T1059": """### MITRE T1059: Command and Scripting Interpreter
-**Description:** Adversaries may abuse command and script interpreters to execute commands, scripts, or binaries.
-
-**Mitigation / Playbook:**
-1. **Monitor:** Enable auditd or PowerShell logging to capture command history.
-2. **Restrict:** Use AppLocker or sudo restrictions to limit what commands users can run.
-3. **Investigate:** Look for suspicious usage of curl, wget, or encoded PowerShell strings.""",
-
-    # PHASE 4: PERSISTENCE (The attacker creates a backdoor)
-    "T1098": """### MITRE T1098: Account Manipulation
-**Description:** Adversaries may manipulate accounts to maintain access to victim systems (e.g., adding a new SSH key).
-
-**Mitigation / Playbook:**
-1. **Verify:** Audit ~/.ssh/authorized_keys for unknown entries.
-2. **Revoke:** Remove unauthorized keys and force password rotation.
-3. **Alert:** Configure Wazuh to alert on file changes in /etc/passwd or /home/*/.ssh/.""",
-    
-    # PHASE 5: IMPACT (Denial of Service - Your T1190 or T1498)
-    "T1190": """### MITRE T1190: Exploit Public-Facing Application
-**Description:** Adversaries may attempt to take advantage of a weakness in an Internet-facing computer or program.
-
-**Mitigation / Playbook:**
-1. **Analysis:** Check WAF logs for SQLi or XSS patterns.
-2. **Patching:** Ensure the application is updated to the latest version.
-3. **Isolation:** If confirmed, move the web server to a quarantine VLAN."""
-}
+KNOWLEDGE_BASE = load_playbooks()
 
 # =============================================================================
 # MCP TOOLS - 3-TIER ARCHITECTURE
@@ -139,38 +105,13 @@ def get_playbook(technique_id: str) -> str:
         return f"❌ No custom playbook found for technique ID: {technique_id}.\n\nSuggestion: Create a playbook or use Tier 2/3 for official MITRE data."
 
 @mcp.tool()
-def get_summary(technique_id: str) -> str:
+def get_tier2_mitre_data(technique_id: str) -> str:
     """
-    TIER 2: Official MITRE Summary (Description + Tactics)
-    
-    Retrieves a concise summary from the official MITRE ATT&CK database.
-    Includes the official description and associated tactics (kill chain phases).
-    
-    Example Input: "T1110"
-    """
-    technique = get_technique_from_cache(technique_id)
-    
-    if not technique:
-        return f"❌ Technique {technique_id} not found in MITRE ATT&CK database.\n\nEnsure the server has downloaded the MITRE data successfully."
-    
-    output = f"""### {technique['id']}: {technique['name']}
-
-**Description:** {technique['description']}
-
-**Tactics:** {', '.join(technique['tactics']) if technique['tactics'] else 'None specified'}
-
-**Reference:** {technique['url']}
-"""
-    return output
-
-@mcp.tool()
-def get_deep_analysis(technique_id: str) -> str:
-    """
-    TIER 3: Deep Dive Analysis (Full MITRE Intelligence)
+    TIER 2: Official MITRE Data (Full Intelligence)
     
     Retrieves comprehensive details from the official MITRE ATT&CK database.
     Includes description, tactics, platforms, data sources, and references.
-    Use this for in-depth incident investigation.
+    Use this if Tier 1 (playbook) lacks information.
     
     Example Input: "T1110"
     """
@@ -192,7 +133,6 @@ def get_deep_analysis(technique_id: str) -> str:
 **Official Reference:** {technique['url']}
 
 ---
-
 *This data is sourced from the official MITRE ATT&CK STIX repository.*
 """
     return output
@@ -200,7 +140,7 @@ def get_deep_analysis(technique_id: str) -> str:
 @mcp.tool()
 def get_full_context(technique_id: str) -> str:
     """
-    HYBRID: Full Context (Tier 1 Playbook + Tier 3 Deep Analysis)
+    HYBRID: Full Context (Tier 1 Playbook + Tier 2 MITRE Data)
     
     Combines custom SOC playbooks with comprehensive MITRE ATT&CK intelligence.
     Provides both actionable response procedures and detailed threat context.
@@ -208,16 +148,16 @@ def get_full_context(technique_id: str) -> str:
     
     Example Input: "T1110"
     """
-    # Get Tier 3 (Deep Analysis)
-    deep_analysis = get_deep_analysis(technique_id)
+    # Get Tier 2 (MITRE Data)
+    mitre_data = get_tier2_mitre_data(technique_id)
     
     # Get Tier 1 (Playbook)
     playbook = KNOWLEDGE_BASE.get(technique_id)
     
     if playbook:
-        return f"{deep_analysis}\n\n---\n\n## 🔧 CUSTOM SOC PLAYBOOK\n\n{playbook}"
+        return f"{mitre_data}\n\n---\n\n## 🔧 CUSTOM SOC PLAYBOOK\n\n{playbook}"
     else:
-        return f"{deep_analysis}\n\n---\n\n*No custom playbook available for this technique. Consider creating one based on your organization's procedures.*"
+        return f"{mitre_data}\n\n---\n\n*No custom playbook available for this technique. Consider creating one based on your organization's procedures.*"
 
 @mcp.tool()
 def refresh_mitre_data() -> str:

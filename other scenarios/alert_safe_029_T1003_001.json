@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-03-30T01:22:38.000+0000",
+  "rule": {
+    "level": 5,
+    "description": "Simulation: Attempted memory dump of LSASS",
+    "mitre": {
+      "id": [
+        "T1003.001"
+      ],
+      "technique": [
+        "LSASS Memory"
+      ]
+    }
+  },
+  "src_ip": "29.212.192.137",
+  "full_log": "procdump.exe -ma lsass.exe lsass.dmp (Safe Simulation)"
+}

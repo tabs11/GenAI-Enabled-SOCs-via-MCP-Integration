@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-03-25T05:32:38.000+0000",
+  "rule": {
+    "level": 9,
+    "description": "Simulation: Suspicious scheduled task creation",
+    "mitre": {
+      "id": [
+        "T1053.005"
+      ],
+      "technique": [
+        "Scheduled Task"
+      ]
+    }
+  },
+  "src_ip": "32.254.103.62",
+  "full_log": "schtasks /create /tn 'UpdaterTasks' /tr 'cmd.exe /c echo Safe' /sc daily"
+}

@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-04-17T00:01:38.000+0000",
+  "rule": {
+    "level": 10,
+    "description": "Simulation: Failed login attempts (Brute Force)",
+    "mitre": {
+      "id": [
+        "T1110.001"
+      ],
+      "technique": [
+        "Password Guessing"
+      ]
+    }
+  },
+  "src_ip": "109.198.145.46",
+  "full_log": "Failed password for user root from 109.198.145.46 port 22 ssh2"
+}

@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-03-23T20:39:38.000+0000",
+  "rule": {
+    "level": 10,
+    "description": "Simulation: Suspicious PowerShell execution",
+    "mitre": {
+      "id": [
+        "T1059.001"
+      ],
+      "technique": [
+        "PowerShell"
+      ]
+    }
+  },
+  "src_ip": "45.7.216.235",
+  "full_log": "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command Write-Host 'Safe Simulation'"
+}

@@ -265,15 +265,17 @@ if ($Mode -eq "full") {
     Write-Host @"
 🌐 Access URLs:
    ┌──────────────────────────────────────────────────────────┐
+   │ SOC Assistant:    http://localhost:8501                  │
+   │                                                          │
    │ Wazuh Dashboard:  https://localhost:443                  │
    │   Username: admin                                        │
-   │   Password: admin                                        │
-   │                                                          │
-   │ SOC Assistant:    http://localhost:8501                  │
+   │   Password: SecretPassword                               │
    │                                                          │
    │ Wazuh API:        https://localhost:55000                │
    │   Username: wazuh-wui                                    │
    │   Password: MyS3cr37P450r.*-                             │
+   │                                                          │
+   │ Kali Attacker:    docker exec -it kali-attacker bash     │
    └──────────────────────────────────────────────────────────┘
 
 📋 Next Steps:

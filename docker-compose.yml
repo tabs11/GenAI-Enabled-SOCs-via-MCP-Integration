@@ -43,6 +43,7 @@ services:
     container_name: metasploitable-target
     stdin_open: true                  # Keep STDIN open (same as -i)
     tty: true                         # Allocate a pseudo-TTY (same as -t)
+    command: /bin/bash -c "/etc/init.d/ssh start && tail -f /dev/null"
     ports:
       - "2222:22"                     # SSH (mapped to 2222 to avoid host conflict)
       - "21:21"                       # FTP
@@ -160,6 +161,22 @@ services:
       - wazuh-indexer
       - wazuh-manager
     restart: unless-stopped
+
+  # --- SERVICE 7: KALI LINUX (ATTACKER MACHINE) ---
+  kali-linux:
+    image: kalilinux/kali-rolling:latest
+    container_name: kali-attacker
+    hostname: kali-attacker
+    stdin_open: true                  # Keep STDIN open for interactive shell
+    tty: true                         # Allocate pseudo-TTY
+    command: /bin/bash -c "apt-get update && apt-get install -y nmap hydra metasploit-framework iputils-ping && tail -f /dev/null"
+    volumes:
+      - ./scripts/attacks:/root/attacks  # Mount attack scripts
+    networks:
+      - soc_network
+    restart: unless-stopped
+    # Note: First startup takes 2-3 minutes to install tools
+    # Access shell: docker exec -it kali-attacker bash
 
 # --- NETWORKS ---
 networks:

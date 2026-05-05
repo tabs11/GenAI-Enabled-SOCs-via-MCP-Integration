@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-03-26T22:19:38.000+0000",
+  "rule": {
+    "level": 12,
+    "description": "Simulation: Suspicious file download",
+    "mitre": {
+      "id": [
+        "T1105"
+      ],
+      "technique": [
+        "Ingress Tool Transfer"
+      ]
+    }
+  },
+  "src_ip": "35.114.20.111",
+  "full_log": "certutil.exe -urlcache -split -f http://example.com/safe_file.txt test.txt"
+}

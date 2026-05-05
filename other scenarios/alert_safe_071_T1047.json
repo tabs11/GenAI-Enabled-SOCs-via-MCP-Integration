@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-03-31T22:37:38.000+0000",
+  "rule": {
+    "level": 10,
+    "description": "Simulation: WMI execution",
+    "mitre": {
+      "id": [
+        "T1047"
+      ],
+      "technique": [
+        "Windows Management Instrumentation"
+      ]
+    }
+  },
+  "src_ip": "95.187.102.68",
+  "full_log": "wmic process call create 'calc.exe'"
+}

@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-04-13T10:00:00.000+0000",
+  "rule": {
+    "level": 12,
+    "description": "SQL Injection attempt detected across web logs.",
+    "mitre": { "id": ["T1190"], "technique": ["Exploit Public-Facing Application"] }
+  },
+  "src_ip": "10.0.0.45",
+  "full_log": "GET /login.php?user=admin' OR 1=1-- HTTP/1.1 403"
+}

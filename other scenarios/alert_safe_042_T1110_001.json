@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-04-22T08:55:38.000+0000",
+  "rule": {
+    "level": 8,
+    "description": "Simulation: Failed login attempts (Brute Force)",
+    "mitre": {
+      "id": [
+        "T1110.001"
+      ],
+      "technique": [
+        "Password Guessing"
+      ]
+    }
+  },
+  "src_ip": "148.97.140.223",
+  "full_log": "Failed password for user svc_account from 148.97.140.223 port 22 ssh2"
+}

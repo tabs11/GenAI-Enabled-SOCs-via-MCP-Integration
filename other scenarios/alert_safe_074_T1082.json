@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-04-19T15:03:38.000+0000",
+  "rule": {
+    "level": 6,
+    "description": "Simulation: System info collection",
+    "mitre": {
+      "id": [
+        "T1082"
+      ],
+      "technique": [
+        "System Information Discovery"
+      ]
+    }
+  },
+  "src_ip": "124.100.129.246",
+  "full_log": "systeminfo.exe > info.txt"
+}

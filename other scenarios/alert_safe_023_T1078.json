@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-03-26T11:08:38.000+0000",
+  "rule": {
+    "level": 7,
+    "description": "Simulation: Unusual login time or location",
+    "mitre": {
+      "id": [
+        "T1078"
+      ],
+      "technique": [
+        "Valid Accounts"
+      ]
+    }
+  },
+  "src_ip": "31.84.119.141",
+  "full_log": "Successful interactive logon by guest at uncommon hour"
+}

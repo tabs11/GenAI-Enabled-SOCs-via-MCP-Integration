@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-04-01T19:14:38.000+0000",
+  "rule": {
+    "level": 8,
+    "description": "Simulation: Web exploit or SQLi attempt",
+    "mitre": {
+      "id": [
+        "T1190"
+      ],
+      "technique": [
+        "Exploit Public-Facing Application"
+      ]
+    }
+  },
+  "src_ip": "81.205.128.174",
+  "full_log": "GET /login.php?user=admin' OR '1'='1 (Safe Simulated SQLi)"
+}

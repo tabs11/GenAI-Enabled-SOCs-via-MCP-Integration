@@ -5,5 +5,11 @@ mcp>=1.0.0
 python-dotenv>=1.0.0
 requests>=2.31.0
 urllib3>=2.0.0
+
+# LangGraph ReAct Dependencies
+langchain-core>=0.2.1
+langchain-ollama>=0.1.0
+langgraph>=0.1.13
+
 # Additional utilities
 # None currently required - asyncio, json, sys, contextlib are part of Python stdlib

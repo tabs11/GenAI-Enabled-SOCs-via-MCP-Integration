@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-03-30T03:48:38.000+0000",
+  "rule": {
+    "level": 7,
+    "description": "Simulation: Network connection enumeration",
+    "mitre": {
+      "id": [
+        "T1049"
+      ],
+      "technique": [
+        "System Network Connections Discovery"
+      ]
+    }
+  },
+  "src_ip": "112.84.89.192",
+  "full_log": "netstat -ano | findstr ESTABLISHED"
+}

@@ -44,11 +44,10 @@
 3. **Streamlit Client** - Orchestration and UI
 4. **Ollama LLM** - Natural language analysis and recommendations
 
-**3-Tier Intelligence System:**
-- Tier 1: Custom SOC Playbooks (hardcoded procedures)
-- Tier 2: MITRE Summary (description + tactics)
-- Tier 3: Deep Analysis (platforms, data sources, kill chain)
-- Hybrid: Combined context for complete analysis
+**3-Tier Intelligence System (Graceful Degradation):**
+- Tier 1: Custom SOC Playbooks (Hardcoded response procedures)
+- Tier 2: MCP External Data (MITRE ATT&CK base, dynamic STIX pulling)
+- Tier 3: LLM Parametric Fallback (Generative reasoning with explicit warnings)
 
 **Deployment Architecture:**
 - 🐳 **Containerized with Docker Compose** - Production-ready deployment
@@ -77,11 +76,13 @@
 ## **SLIDE 4: Live Demo - Attack Scenario Injection**
 
 **Demonstration Features:**
-- Lab Controller for attack scenario simulation
-- Three pre-configured attack vectors:
+- Lab Controller for dynamically injected attack scenarios
+- Includes multiple mock alert vectors mapped to specific MITRE techniques:
   - 🔒 SSH Brute Force (T1110)
   - 📡 Network Scanning (T1595)
   - 💻 Command Execution (T1059)
+  - 🕸️ SQL Injection (T1190)
+  - ⏱️ Scheduled Task (T1053.005)
 
 **Screenshot to Capture:**
 1. **Before injection** - Sidebar showing scenario selector
@@ -140,10 +141,10 @@
 **Key Achievements:**
 ✅ Production-ready containerized deployment (Docker)
 ✅ Successful MCP-based multi-agent integration
-✅ Real-time MITRE ATT&CK intelligence retrieval (3-tier system)
+✅ Built-in LangGraph Agent with "Constrained ReAct" & "Reflection/Correction" loops
+✅ Real-time MITRE ATT&CK intelligence retrieval seamlessly integrated via Memory Cache
 ✅ Model-agnostic LLM interface (Ollama support)
-✅ Interactive threat investigation workflow
-✅ Scenario-based testing environment
+✅ Automated Pandas/JSON output pipeline via `evaluate_agent.py` for testing frameworks
 
 **Performance Metrics (if available):**
 - Response time for alert analysis
@@ -270,7 +271,7 @@ Before your presentation:
 - [ ] Prepare backup screenshots in case of technical issues
 - [ ] Have the application running during presentation (if doing live demo)
 - [ ] Prepare 1-2 example questions to ask the AI
-- [ ] Know your MITRE technique IDs (T1110, T1595, T1059)
+- [ ] Know your MITRE technique IDs (T1110, T1595, T1059, T1190, T1053.005)
 - [ ] Have the repository link ready if asked about code
 
 ---
